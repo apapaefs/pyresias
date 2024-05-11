@@ -6,6 +6,7 @@
 <ol>
 <li>LHAPDF 6.5.x with the python interface built in.</li>
 <li>python 3.x</li>
+<li>pyhepmc</li>g
 <li>matplotlib, numpy, scipy.</li>
 </ol>
 
