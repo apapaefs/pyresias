@@ -14,6 +14,16 @@
 python3 pyresias_test.py -n [Number of Branches] -Q [Starting scale] -c
 [Cutoff Scale] -o [outputdirectory] -d [enable debugging output]
 
+and:
+
 python3 pyresias.py LHE_FILE.lhe.gz
 
 An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
+
+## About the Author
+
+[Andreas Papaefstathiou](https://facultyweb.kennesaw.edu/apapaefs/) is Assistant Professor of Physics at Kennesaw State University. This website was originally created in January 2024 and is updated on a best-effort basis.
+
+## References
+
+Main reference coming soon!
