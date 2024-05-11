@@ -11,5 +11,9 @@
 </ol>
 
 <h2>Usage:</h2>
-python pyresias_test.py -n [Number of Branches] -Q [Starting scale] -c
+python3 pyresias_test.py -n [Number of Branches] -Q [Starting scale] -c
 [Cutoff Scale] -o [outputdirectory] -d [enable debugging output]
+
+python3 pyresias.py LHE_FILE.lhe.gz
+
+An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
