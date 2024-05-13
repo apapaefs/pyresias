@@ -1,0 +1,11 @@
+name: pyresias
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - matplotlib
+  - pandas
+  - tqdm
+  - PrettyTable
+  - sympy
+  - lhapdf
