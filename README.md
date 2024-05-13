@@ -11,14 +11,19 @@
 </ol>
 
 <h2>Usage:</h2>
+```
 python3 pyresias_test.py -n [Number of Branches] -Q [Starting scale] -c
 [Cutoff Scale] -o [outputdirectory] -d [enable debugging output]
 
-and:
 
+and:
+```
 python3 pyresias.py LHE_FILE.lhe.gz
+```
 
 An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
+
+Click below to launch a Binder repository to use the ```jupyter
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/apapaefs/pyresias/HEAD)
 
