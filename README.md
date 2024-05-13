@@ -20,7 +20,7 @@ python3 pyresias.py LHE_FILE.lhe.gz
 
 An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/apapaefs%2Fpyresias/HEAD)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/apapaefs/pyresias/HEAD)
 
 ## About the Author
 
