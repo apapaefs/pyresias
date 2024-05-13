@@ -11,22 +11,29 @@
 </ol>
 
 <h2>Usage:</h2>
+
+There are three main files in this tutorial: 
+
+1. The "test" code, providing a basic demonstration of the parton shower sudakov veto algorithm: 
+
 ```
 python3 pyresias_test.py -n [Number of Branches] -Q [Starting scale] -c
 [Cutoff Scale] -o [outputdirectory] -d [enable debugging output]
 ```
 
-and:
-
-```
-python3 pyresias.py LHE_FILE.lhe.gz
-```
-
-An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
+2. The JupyterLab notebook ```jupyter_nb.ipynb```, which includes a step-by-step guide of the above "test" code: 
 
 Click below to launch a Binder repository to use the JupyterLab notebook ```jupyter_nb.ipynb``` directly!
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/apapaefs/pyresias/HEAD)
+
+3. The parton shower on $e^+ e^- \rightarrow q\bar{q}$ LHE files: 
+
+```
+python3 pyresias.py data/LHE_FILE.lhe.gz
+```
+
+An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
 
 ## About the Author
 
