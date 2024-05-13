@@ -20,6 +20,8 @@ python3 pyresias.py LHE_FILE.lhe.gz
 
 An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/apapaefs%2Fpyresias/HEAD)
+
 ## About the Author
 
 [Andreas Papaefstathiou](https://facultyweb.kennesaw.edu/apapaefs/) is Assistant Professor of Physics at Kennesaw State University. This website was originally created in January 2024 and is updated on a best-effort basis.
