@@ -1,0 +1,2 @@
+#!/bin/bash
+lhapdf install PDF4LHC15_nlo_mc_pdfas
