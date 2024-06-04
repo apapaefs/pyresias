@@ -423,17 +423,18 @@ plt.close(fig)
 
 ###########################
 ###########################
+###########################
 print('---')
 print('plotting z of emissions')
 # plot settings ########
 plot_type = 'momentumfrac'
 # plot:
 # plot settings
-ylab = '$zP(z)$'
+ylab = '$(1-z)P(z)$'
 xlab = '$z$'
-ylog = True
+ylog = False
 xlog = False
-nbins=60
+nbins=40
 # construct the axes for the plot
 fig = plt.figure(constrained_layout=True)
 fig.get_layout_engine().set(w_pad=0 / 72, h_pad=0 / 72, hspace=0,
@@ -456,30 +457,40 @@ gs.update(wspace=0.0, hspace=0.0)
 bins, edges = np.histogram(tarray, bins=nbins, density=True)
 left,right = edges[:-1],edges[1:]
 X = np.array([0.5*left+0.5*right]).T.flatten()
-Y = np.array([bins]).T.flatten() * X
+Y = np.array([bins]).T.flatten() * (1-X)
 # normalise:
 xnorm_min=0.0
 xnorm_max=1.0
 
-Y = Y/np.linalg.norm(Y[(X>xnorm_min) & (X<xnorm_max)])
-Ysum = Y[(X>xnorm_min) & (X<xnorm_max)].sum()
+#Y = Y/np.linalg.norm(Y)/(Y[1]-Y[0])
+#Ysum = Y[(X>xnorm_min) & (X<xnorm_max)].sum()
 gs.update(wspace=0.0, hspace=0.0)
 
-# plot:
-ax.plot(X,Y, label='Pyresias', color='red', lw=0, marker='o', ms=2)
 
 # compare to the input splitting function
 # this comparison is only correct if alphaS is fixed
 # this is because the scale of alphaS is also a function of z 
-Yspl = Pqq(X) * (X[1] - X[0]) * X
+Yspl = Pqq(X) * (1-X)
 
 # get the integral numerically, but not in the whole range
 # since the splitting function diverges as z->1 and this cannot be captured numerically:
 zp = X[(X<xnorm_max)][-1]
 zm = X[(X>xnorm_min)][0]
-YsplI = quad(Pqq, zm, zp)
-Yspl = Yspl/YsplI[0]*Ysum
-ax.plot(X,Yspl, color='blue', lw=1, label='Splitting function')
+def Pqq1mz(z):
+    return Pqq(z) * (1-z)
+YsplI = quad(Pqq1mz, 0, 1)
+YsplI = np.linalg.norm(Yspl)
+print(np.linalg.norm(Yspl))
+ax.plot(X,Yspl, color='blue', lw=1, label='Splitting function', marker='x', ms=0)
+
+# plot:
+print(np.linalg.norm(Y))
+Y = YsplI * Y / np.linalg.norm(Y)
+print(np.linalg.norm(Y))
+print(YsplI)
+
+ax.plot(X,Y, label='Pyresias', color='red', lw=0, marker='o', ms=2)
+
 
 # ratio:
 ax2.plot(X,Y/Yspl, color='red', lw=0, label='Splitting function', marker='o', ms=2)
