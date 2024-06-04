@@ -8,11 +8,11 @@ from matplotlib import pyplot as plt # plotting
 import matplotlib.gridspec as gridspec # more plotting 
 from prettytable import PrettyTable # pretty printing of tables
 from tqdm import tqdm # display progress
-import lhapdf # LHAPDF python interface
 from optparse import OptionParser # command line parameters
 from scipy.integrate import quad # for numerical integrals
 from matplotlib.ticker import MultipleLocator
 from scipy import interpolate
+from alphaS import *
 
 ################################################
 print('\nPyresias: a toy parton shower\n')
@@ -81,18 +81,10 @@ outputdirectory = options.output + '/'
 
 #################################################
 
-# LHAPDF setup:
-# set up the alphaS object from LHAPDF:
-LHAPDF_alphaS = lhapdf.mkAlphaS("PDF4LHC15_nlo_mc_pdfas")
-
-# set up the PDF to pick the minimum valid scale:
-pdf = lhapdf.mkPDFs("PDF4LHC15_nlo_mc_pdfas")
+# initialize alphaS: pass the value of alphaS at mz, and mz
+aS = alphaS(0.118, 91.1876)
 
 #################################################
-
-# Constants:
-# QCD quark charge = (N^2 - 1)/2N for N colours
-CF = 4./3.
 
 # fixed scale if the alphaS is fixed:
 scaleoption = "fixed" # "pt" for the default scale, "fixed" for a fixed scale, given by fixedScale:
@@ -121,8 +113,8 @@ def scale_of_alphaS(t, z):
 def alphaS(t, z, Qcut, aSover):
     scale = scale_of_alphaS(t, z)
     if scale < Qcut:
-        return LHAPDF_alphaS.alphasQ(Qcut)/2./math.pi
-    return LHAPDF_alphaS.alphasQ(scale)/2./math.pi
+        return aS.alphasQ(Qcut)/2./math.pi
+    return aS.alphasQ(scale)/2./math.pi
 
 # the analytical integral of t * Gamma over z 
 def tGamma(z, aSover):
@@ -139,11 +131,10 @@ def zm_over(t, Qcut): return math.sqrt(Qcut**2/t)
 # set the overestimate of alphaS once and for all
 def get_alphaS_over(Q, Qcut):
     if scaleoption == "pt":
-        minscale = math.sqrt(pdf[0].q2Min) # the minimum scale^2 available to the PDF
-        scale = minscale
+        scale = Qcut
     elif scaleoption == "fixed":
         scale = fixedScale
-    alphaS_over = LHAPDF_alphaS.alphasQ(scale)/2./math.pi
+    alphaS_over = aS.alphasQ(scale)/2./math.pi
     if debug: print('alpha_S overestimate set to', alphaS_over, 'for scale=', scale, 'GeV')
     return alphaS_over
 
@@ -431,17 +422,18 @@ plt.savefig(outputdirectory + infile.replace('.dat','.pdf'), bbox_inches='tight'
 plt.close(fig)
 
 ###########################
+###########################
 print('---')
 print('plotting z of emissions')
 # plot settings ########
 plot_type = 'momentumfrac'
 # plot:
 # plot settings
-ylab = '$P(1-z)$'
-xlab = '$1-z$'
+ylab = '$zP(z)$'
+xlab = '$z$'
 ylog = True
 xlog = False
-nbins=200
+nbins=60
 # construct the axes for the plot
 fig = plt.figure(constrained_layout=True)
 fig.get_layout_engine().set(w_pad=0 / 72, h_pad=0 / 72, hspace=0,
@@ -457,51 +449,47 @@ ax2.yaxis.set_minor_locator(MultipleLocator(0.025))
 
 tarray = []
 for i in range(len(AllEmissions)):
-    tarray.append(1-np.array(AllEmissions[i][1]))
+    tarray.append(np.array(AllEmissions[i][1]))
 gs.update(wspace=0.0, hspace=0.0)
 
 # get the histogram bins:
-bins, edges = np.histogram(tarray, bins=nbins)
+bins, edges = np.histogram(tarray, bins=nbins, density=True)
 left,right = edges[:-1],edges[1:]
 X = np.array([0.5*left+0.5*right]).T.flatten()
-Y = np.array([bins]).T.flatten()
+Y = np.array([bins]).T.flatten() * X
 # normalise:
-xnorm_min=0.2
-xnorm_max=0.8
+xnorm_min=0.0
+xnorm_max=1.0
 
 Y = Y/np.linalg.norm(Y[(X>xnorm_min) & (X<xnorm_max)])
 Ysum = Y[(X>xnorm_min) & (X<xnorm_max)].sum()
 gs.update(wspace=0.0, hspace=0.0)
 
 # plot:
-ax.plot(X,Y, label='Pyresias', color='red', lw=0, marker='o', ms=1)
+ax.plot(X,Y, label='Pyresias', color='red', lw=0, marker='o', ms=2)
 
 # compare to the input splitting function
 # this comparison is only correct if alphaS is fixed
 # this is because the scale of alphaS is also a function of z 
-Yspl = Pqq(1-X) * (X[1] - X[0])
+Yspl = Pqq(X) * (X[1] - X[0]) * X
 
 # get the integral numerically, but not in the whole range
 # since the splitting function diverges as z->1 and this cannot be captured numerically:
 zp = X[(X<xnorm_max)][-1]
 zm = X[(X>xnorm_min)][0]
-print(zm, zp)
-def Pqq1mz(z):
-    return Pqq(1-z)
-YsplI = quad(Pqq1mz, zm, zp)
-print('YsplI=',YsplI)
+YsplI = quad(Pqq, zm, zp)
 Yspl = Yspl/YsplI[0]*Ysum
 ax.plot(X,Yspl, color='blue', lw=1, label='Splitting function')
 
 # ratio:
-ax2.plot(X,Y/Yspl, color='red', lw=0, label='Splitting function', marker='o', ms=1)
+ax2.plot(X,Y/Yspl, color='red', lw=0, label='Splitting function', marker='o', ms=2)
 ax2.hlines(y=1, xmin=0, xmax=1, color='black', ls='--')
 
 # set the ticks, labels and limits etc.
 ax.set_ylabel(ylab, fontsize=20)
 ax2.set_xlabel(xlab, fontsize=20)
 ax2.set_ylabel('Pyr./Spl.')
-ax2.set_ylim(0.8,1.2)
+ax2.set_ylim(0.9,1.1)
 ax2.set_xlim(0.0,1.0)
 ax.set_xlim(0.0,1.0)
 # choose x and y log scales
@@ -516,7 +504,7 @@ else:
 
 # create legend and plot/font size
 ax.legend()
-ax.legend(loc="upper right", numpoints=1, frameon=False, prop={'size':8})
+ax.legend(loc="upper center", numpoints=1, frameon=False, prop={'size':10})
 ax.set_xticklabels('')
 ax.set_xticks([])
 

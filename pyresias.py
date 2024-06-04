@@ -8,12 +8,12 @@ from matplotlib import pyplot as plt # plotting
 import matplotlib.gridspec as gridspec # more plotting 
 from prettytable import PrettyTable # pretty printing of tables
 from tqdm import tqdm # display progress
-import lhapdf # LHAPDF python interface
 from optparse import OptionParser # command line parameters
 from scipy.integrate import quad # for numerical integrals
 from LHEReader import * # read LHE files
 from HEPMCWriter import * # write HepMC files using pyhepmc
 from LHEWriter import * # write LHE file
+from alphaS import * # alphaS at LO and NLO
 
 ################################################
 print('\nPyresias: a toy parton shower\n')
@@ -99,18 +99,8 @@ if outputfile == '': outputfile = inputfile.replace('.lhe','').replace('.gz','')
 
 #################################################
 
-# LHAPDF setup:
-# set up the alphaS object from LHAPDF:
-LHAPDF_alphaS = lhapdf.mkAlphaS("PDF4LHC15_nlo_mc_pdfas")
-
-# set up the PDF to pick the minimum valid scale:
-pdf = lhapdf.mkPDFs("PDF4LHC15_nlo_mc_pdfas")
-
-#################################################
-
-# Constants:
-# QCD quark charge = (N^2 - 1)/2N for N colours
-CF = 4./3.
+# initialize alphaS class: pass the value of alphaS at mz, and mz
+aS = alphaS(0.118, 91.1876)
 
 #################################################
 
@@ -128,8 +118,8 @@ def scale_of_alphaS(t, z):
 def alphaS(t, z, Qcut, aSover):
     scale = scale_of_alphaS(t, z)
     if scale < Qcut:
-        return LHAPDF_alphaS.alphasQ(Qcut)/2./math.pi
-    return LHAPDF_alphaS.alphasQ(scale)/2./math.pi
+        return aS.alphasQ(Qcut)/2./math.pi
+    return aS.alphasQ(scale)/2./math.pi
 
 # the analytical integral of t * Gamma over z 
 def tGamma(z, aSover):
@@ -145,12 +135,12 @@ def zm_over(t, Qcut): return math.sqrt(Qcut**2/t)
 
 # set the overestimate of alphaS once and for all
 def get_alphaS_over(Qcut):
-    minscale = math.sqrt(pdf[0].q2Min) # the minimum scale^2 available to the PDF
+    minscale = Qcut # the minimum scale^2 available to the PDF
     if minscale < Qcut:
         scale = minscale
     else:
         scale = Qcut
-    alphaS_over = LHAPDF_alphaS.alphasQ(scale)/2./math.pi
+    alphaS_over = aS.alphasQ(scale)/2./math.pi
     if debug: print('alpha_S overestimate set to', alphaS_over, 'for scale=', scale, 'GeV')
     return alphaS_over
 
