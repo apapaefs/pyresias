@@ -4,7 +4,6 @@
 
 <h2>Pre-requisites:</h2>
 <ol>
-<li>LHAPDF 6.5.x with the python interface built in.</li>
 <li>python 3.x</li>
 <li>pyhepmc</li>
 <li>matplotlib, numpy, scipy.</li>
