@@ -40,4 +40,4 @@ An example LHE file is provided in the "data" directory, generated through MadGr
 
 ## References
 
-Main reference coming soon!
+[arxiv reference](https://arxiv.org/abs/2406.03528) 
