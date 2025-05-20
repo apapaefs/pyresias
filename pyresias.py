@@ -418,15 +418,22 @@ def GlobalMomCons(showeredParticles, showeredJets):
         if abs(p[0]) == 11:
             showeredParticlesBoosted.append(p)
     showeredJetsBoosted = []
-    for jj, jet in enumerate(showeredJets):
-        showeredJetBoosted = []
-        # get the boost:
-        boostvec = getBoostBeta(kres, newqarray[jj], oldparray[jj])
-        if len(jet[1]) == 1: # don't do anything if the particle has not showered
+    # check: if both parent particles have not radiated, put them in the record as they were:
+    # if true, then at least one has radiated: 
+    either_radiated = any(len(jet[1]) > 1 for jet in showeredJets)
+    if either_radiated is False:
+        for jj, jet in enumerate(showeredJets):
             showeredJetsBoosted.append(jet[1][0])
             showeredParticlesBoosted.append(jet[1][0])
-        # if the parents have radiated, rotate boost each particle in the jet for momentum conservation
-        elif len(jet[1]) > 1:
+    else:     
+        for jj, jet in enumerate(showeredJets):
+            showeredJetBoosted = []
+            # get the boost:
+            boostvec = getBoostBeta(kres, newqarray[jj], oldparray[jj])
+            #if len(jet[1]) == 1: # don't do anything if the particle has not showered
+            #    showeredJetsBoosted.append(jet[1][0])
+            #    showeredParticlesBoosted.append(jet[1][0])
+            # if the parents have radiated, rotate boost each particle in the jet for momentum conservation
             for p in jet[1]:
                 # rotate all particles such that the new jet axis aligns with the parent jet axis
                 protated = rotate(p, Rqparray[jj]) 
@@ -466,8 +473,9 @@ def getBoostBeta(k, newq, oldp):
 #  // conservation violations at the end of the shower from a hard
 #  // process.
 #    betam = (q*np.sqrt(qs + Q2) - kp*np.sqrt(kps + Q2))/(kps + qs + Q2)
-#  // move directly to 'return' 
-    beta = -betam*(k/kp)*np.array([oldp[0], oldp[1], oldp[2]])
+#  // move directly to 'return'
+# NOTE: difference of a minus sign due to ThePEG's definition of the boost 
+    beta = betam*(k/kp)*np.array([oldp[0], oldp[1], oldp[2]])
 #  // note that (k/kp)*oldp.vect() = oldp.vect()/oldp.vect().mag() but cheaper. 
     if betam >= 0:
         return beta

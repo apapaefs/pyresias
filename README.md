@@ -32,7 +32,7 @@ Click below to launch a Binder repository to use the JupyterLab notebook ```jupy
 python3 pyresias.py data/LHE_FILE.lhe.gz
 ```
 
-An example LHE file is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
+An example LHE file (```eejj_ECM206.lhe.gz```) is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
 
 ## About the Author
 
