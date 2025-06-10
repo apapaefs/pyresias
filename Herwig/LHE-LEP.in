@@ -1,0 +1,144 @@
+##################################################
+# LHE reader for e+e- 
+read snippets/EECollider.in
+#read snippets/YFS.in
+
+
+##################################################
+#   Create the Les Houches file handler and reader
+##################################################
+cd /Herwig/EventHandlers
+library LesHouches.so
+# create the event handler
+create ThePEG::LesHouchesEventHandler LesHouchesHandler
+
+# set the various step handlers
+set LesHouchesHandler:PartonExtractor /Herwig/Partons/EEExtractor
+set LesHouchesHandler:CascadeHandler /Herwig/Shower/ShowerHandler
+set LesHouchesHandler:DecayHandler /Herwig/Decays/DecayHandler
+
+#set LesHouchesHandler:HadronizationHandler /Herwig/Hadronization/ClusterHadHandler
+#set /Herwig/Shower/PartnerFinder:QEDPartner IIandFF
+#set /Herwig/Shower/ShowerHandler:DoISR Yes
+#set /Herwig/Shower/ShowerHandler:MaxPtIsMuF Yes
+#set /Herwig/Shower/ShowerHandler:RestrictPhasespace Yes
+
+# set the weight option (e.g. for MC@NLO)
+set LesHouchesHandler:WeightOption VarNegWeight
+
+# set event hander as one to be used
+set /Herwig/Generators/EventGenerator:EventHandler /Herwig/EventHandlers/LesHouchesHandler
+# disable handronization
+set /Herwig/Generators/EventGenerator:EventHandler:HadronizationHandler  NULL
+set /Herwig/Analysis/Basics:CheckQuark false
+
+# Set up an EMPTY CUTS object
+# Normally you will have imposed any cuts you want
+# when generating the event file and don't want any more
+# in particular for POWHEG and MC@NLO you must not apply cuts on the
+# the extra jet
+create ThePEG::Cuts /Herwig/Cuts/NoCuts
+
+
+####################################################################
+# PDF settings #
+####################################################################
+
+create ThePEG::LesHouchesFileReader LesHouchesReader
+set LesHouchesReader:FileName eejj_ECM206_1E6.lhe.gz
+set LesHouchesReader:AllowedToReOpen No
+set LesHouchesReader:InitPDFs 0
+set LesHouchesReader:Cuts /Herwig/Cuts/NoCuts
+
+insert LesHouchesHandler:LesHouchesReaders 0 LesHouchesReader
+
+##################################################
+#  Shower parameters
+##################################################
+# normally, especially for POWHEG, you want
+# the scale supplied in the event files (SCALUP)
+# to be used as a pT veto scale in the parton shower
+set /Herwig/Shower/ShowerHandler:MaxPtIsMuF No
+set /Herwig/Shower/ShowerHandler:RestrictPhasespace No
+# Shower parameters
+# treatment of wide angle radiation
+set /Herwig/Shower/PartnerFinder:PartnerMethod Random
+set /Herwig/Shower/PartnerFinder:ScaleChoice Different
+# with MC@NLO these parameters are required for consistency of the subtraction terms
+# suggested parameters (give worse physics results with POWHEG)
+set /Herwig/Shower/KinematicsReconstructor:InitialInitialBoostOption LongTransBoost
+set /Herwig/Shower/KinematicsReconstructor:ReconstructionOption General
+set /Herwig/Shower/KinematicsReconstructor:InitialStateReconOption Rapidity
+set /Herwig/Shower/ShowerHandler:SpinCorrelations No
+
+
+
+cd /Herwig/EventHandlers
+#set EventHandler:CascadeHandler        NULL 
+set EventHandler:HadronizationHandler  NULL 
+set EventHandler:DecayHandler          NULL 
+# The handler for multiple parton interactions 
+#set /Herwig/Shower/ShowerHandler:MPIHandler       NULL
+set EventHandler:Weighted No
+
+
+#read snippets/Rivet.in
+#insert /Herwig/Analysis/Rivet:Analyses 0 XXX_2015_ABC123
+
+read snippets/HepMC.in
+set /Herwig/Analysis/HepMC:PrintEvent 10000
+set /Herwig/Analysis/Basics:CheckQuark false # removes warning that there are quarks in the final state in case hadronization is turned off
+
+
+##################################################
+# LHC physics parameters (override defaults here) 
+##################################################
+# e.g if different top mass used
+#set /Herwig/Particles/t:NominalMass 173.0
+
+cd /Herwig/Shower
+do SplittingGenerator:DeleteFinalSplitting g->g,g; GtoGGSudakovFSR
+#
+do SplittingGenerator:DeleteFinalSplitting g->u,ubar; GtoQQbarSudakovFSR
+do SplittingGenerator:DeleteFinalSplitting g->d,dbar; GtoQQbarSudakovFSR
+do SplittingGenerator:DeleteFinalSplitting g->s,sbar; GtoQQbarSudakovFSR
+do SplittingGenerator:DeleteFinalSplitting g->c,cbar; GtoccbarSudakovFSR
+do SplittingGenerator:DeleteFinalSplitting g->b,bbar; GtobbbarSudakovFSR
+do SplittingGenerator:DeleteFinalSplitting g->t,tbar; GtoQQbarSudakovFSR
+#
+do SplittingGenerator:DeleteFinalSplitting gamma->u,ubar; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->d,dbar; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->s,sbar; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->c,cbar; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->b,bbar; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->t,tbar; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->e-,e+; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->mu-,mu+; GammatoQQbarSudakov
+do SplittingGenerator:DeleteFinalSplitting gamma->tau-,tau+; GammatoQQbarSudakov
+#
+do SplittingGenerator:DeleteFinalSplitting u->u,gamma; QtoQGammaSudakov
+do SplittingGenerator:DeleteFinalSplitting d->d,gamma; QtoQGammaSudakov
+do SplittingGenerator:DeleteFinalSplitting s->s,gamma; QtoQGammaSudakov
+do SplittingGenerator:DeleteFinalSplitting c->c,gamma; QtoQGammaSudakov
+do SplittingGenerator:DeleteFinalSplitting b->b,gamma; QtoQGammaSudakov
+do SplittingGenerator:DeleteFinalSplitting t->t,gamma; QtoQGammaSudakov
+
+do SplittingGenerator:DeleteFinalSplitting e-->e-,gamma; LtoLGammaSudakov
+do SplittingGenerator:DeleteFinalSplitting mu-->mu-,gamma; LtoLGammaSudakov
+do SplittingGenerator:DeleteFinalSplitting tau-->tau-,gamma; LtoLGammaSudakov
+
+do SplittingGenerator:DeleteFinalSplitting W+->W+,gamma; WtoWGammaSudakov
+
+set ShowerHandler:EvolutionScheme Q2
+
+cd /Herwig/Analysis
+library LHEWriter.so
+create Herwig::LHEWriter /Herwig/Analysis/LHEWriter
+insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 /Herwig/Analysis/LHEWriter
+
+##################################################
+# Save run for later usage with 'Herwig run'
+##################################################
+cd /Herwig/Generators
+set EventGenerator:PrintEvent 10000
+saverun LHE-LEP EventGenerator
