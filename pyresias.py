@@ -546,4 +546,4 @@ ECM = 206
 outlhe = outputfile.replace('.hepmc','_pyr.lhe')
 fout = init_lhe(outlhe, sigma, error, ECM)
 write_lhe(fout, showeredEvents, ECM**2, debug)
-finalize_lhe
+finalize_lhe(fout)
