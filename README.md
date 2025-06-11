@@ -32,7 +32,9 @@ Click below to launch a Binder repository to use the JupyterLab notebook ```jupy
 python3 pyresias.py data/LHE_FILE.lhe.gz
 ```
 
-An example LHE file (```eejj_ECM206.lhe.gz```) is provided in the "data" directory, generated through MadGraph5_aMC@NLO.
+An example LHE file (```eejj_ECM206.lhe.gz```) is provided in the "data" directory, generated through MadGraph5_aMC@NLO (10k events).
+
+A larger example file, with 1 million events (```eejj_ECM206_1E6.lhe.gz```) is available through git Large File Storage (LFS). To obtain this file following cloning of the repository, making sure that git LFS is installed (https://git-lfs.com), type ```git lfs pull```.  
 
 ## About the Author
 
