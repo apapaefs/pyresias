@@ -357,9 +357,11 @@ def readlhefile(infile):
 def read_momenta(inputline):
     id = int(inputline.split()[0])
     status = int(inputline.split()[1])
+    col = int(inputline.split()[4])
+    acol = int(inputline.split()[5])
     px = float(inputline.split()[6])
     py = float(inputline.split()[7])
     pz = float(inputline.split()[8])
     e = float(inputline.split()[9])
     m = float(inputline.split()[10])
-    return [id, status, px, py, pz, e, m]
+    return [id, status, px, py, pz, e, m, col, acol]

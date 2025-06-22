@@ -289,7 +289,7 @@ def EvolveParticle(p, Qmin, aSover):
         print('-----')
         print('Emissions table:')
         PrintEmissions(Emissions)
-    # add the magnitude of the quark with respect to its origina direction:
+    # add the magnitude of the quark with respect to its original direction:
     Momenta.append([p[0], 1, 0, 0, pmag, pmag, 0])
     return Emissions, Momenta
 
@@ -529,7 +529,7 @@ for i, particles in enumerate(tqdm(events)):
     showeredParticles = GlobalMomCons(showeredParticles, showeredJets)
     if debug is True or printevents is True:
         PrintMomenta(showeredParticles)
-        print('Momentum conservation check AFTER=',CheckMomentumConservation(showeredParticles))
+        print('Momentum conservation check AFTER=',CheckMomentumConservation(showeredParticles),'\n')
     showeredEvents.append(showeredParticles)
     if i > Nshower: break
 

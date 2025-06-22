@@ -63,10 +63,10 @@ set /Herwig/Shower/ShowerHandler:RestrictPhasespace No
 # Shower parameters
 # treatment of wide angle radiation
 set /Herwig/Shower/PartnerFinder:PartnerMethod Random
-set /Herwig/Shower/PartnerFinder:ScaleChoice Different
+set /Herwig/Shower/PartnerFinder:ScaleChoice Partner
 # with MC@NLO these parameters are required for consistency of the subtraction terms
 # suggested parameters (give worse physics results with POWHEG)
-set /Herwig/Shower/KinematicsReconstructor:InitialInitialBoostOption LongTransBoost
+set /Herwig/Shower/KinematicsReconstructor:InitialInitialBoostOption OneBoost
 set /Herwig/Shower/KinematicsReconstructor:ReconstructionOption General
 set /Herwig/Shower/KinematicsReconstructor:InitialStateReconOption Rapidity
 set /Herwig/Shower/ShowerHandler:SpinCorrelations No
@@ -129,7 +129,14 @@ do SplittingGenerator:DeleteFinalSplitting tau-->tau-,gamma; LtoLGammaSudakov
 
 do SplittingGenerator:DeleteFinalSplitting W+->W+,gamma; WtoWGammaSudakov
 
-set ShowerHandler:EvolutionScheme Q2
+# turn off intrinsic pT
+set ShowerHandler:IntrinsicPtGaussian 0.0*GeV
+set ShowerHandler:IntrinsicPtBeta    0
+set ShowerHandler:IntrinsicPtGamma   0*GeV
+set ShowerHandler:IntrinsicPtIptmax   0*GeV
+
+set ShowerHandler:EvolutionScheme pT
+set /Herwig/Shower/KinematicsReconstructor:FinalFinalWeight No
 
 cd /Herwig/Analysis
 library LHEWriter.so
