@@ -1,8 +1,42 @@
 ##################################################
 # LHE reader for e+e- 
 read snippets/EECollider.in
-#read snippets/YFS.in
+# set the energy?
+set /Herwig/EventHandlers/Luminosity:Energy 206
 
+###################################################
+# pT scheme
+set /Herwig/Shower/PowhegShowerHandler:EvolutionScheme pT
+set /Herwig/Shower/ShowerHandler:EvolutionScheme pT
+set /Herwig/Shower/KinematicsReconstructor:FinalFinalWeight No
+# don't enforce strict angular ordering
+set /Herwig/Shower/QtoQGammaSplitFn:StrictAO No
+set /Herwig/Shower/QtoQGSplitFn:StrictAO No
+set /Herwig/Shower/GtoGGSplitFn:StrictAO No
+set /Herwig/Shower/WtoWGammaSplitFn:StrictAO No
+set /Herwig/Shower/GtoQQbarSplitFn:StrictAO No
+set /Herwig/Shower/GammatoQQbarSplitFn:StrictAO No
+set /Herwig/Shower/QtoGQSplitFn:StrictAO No
+set /Herwig/Shower/QtoGammaQSplitFn:StrictAO No
+# pT scheme
+# parameters of the tune
+set /Herwig/Shower/AlphaQCDFSR:AlphaIn				   0.1074
+set /Herwig/Shower/PTCutOff:pTmin                                  0.900
+set /Herwig/Hadronization/ClusterFissioner:ClMaxLight              4.204
+set /Herwig/Hadronization/ClusterFissioner:ClPowLight              3.000
+set /Herwig/Hadronization/ClusterFissioner:PSplitLight 		   0.914
+set /Herwig/Hadronization/HadronSelector:PwtSquark     		   0.647
+set /Herwig/Hadronization/HadronSelector:PwtDIquark    		   0.236
+set /Herwig/Hadronization/ClusterFissioner:ClMaxCharm              4.204
+set /Herwig/Hadronization/ClusterFissioner:ClPowCharm 		   3.000
+set /Herwig/Hadronization/ClusterFissioner:PSplitCharm		   1.060
+set /Herwig/Hadronization/ClusterDecayer:ClSmrCharm  		   0.098
+set /Herwig/Hadronization/HadronSelector:SingleHadronLimitCharm	   0.000
+set /Herwig/Hadronization/ClusterFissioner:ClMaxBottom             5.757
+set /Herwig/Hadronization/ClusterFissioner:ClPowBottom 		   0.672
+set /Herwig/Hadronization/ClusterFissioner:PSplitBottom		   0.557
+set /Herwig/Hadronization/ClusterDecayer:ClSmrBottom  		   0.117
+set /Herwig/Hadronization/HadronSelector:SingleHadronLimitBottom   0.000
 
 ##################################################
 #   Create the Les Houches file handler and reader
@@ -45,7 +79,8 @@ create ThePEG::Cuts /Herwig/Cuts/NoCuts
 ####################################################################
 
 create ThePEG::LesHouchesFileReader LesHouchesReader
-set LesHouchesReader:FileName eejj_ECM206_1E6.lhe.gz
+#set LesHouchesReader:FileName eejj_ECM206_1E6.lhe.gz
+set LesHouchesReader:FileName eejj_ECM206.lhe.gz
 set LesHouchesReader:AllowedToReOpen No
 set LesHouchesReader:InitPDFs 0
 set LesHouchesReader:Cuts /Herwig/Cuts/NoCuts
@@ -64,26 +99,14 @@ set /Herwig/Shower/ShowerHandler:RestrictPhasespace No
 # treatment of wide angle radiation
 set /Herwig/Shower/PartnerFinder:PartnerMethod Random
 set /Herwig/Shower/PartnerFinder:ScaleChoice Partner
-# with MC@NLO these parameters are required for consistency of the subtraction terms
-# suggested parameters (give worse physics results with POWHEG)
-set /Herwig/Shower/KinematicsReconstructor:InitialInitialBoostOption OneBoost
 set /Herwig/Shower/KinematicsReconstructor:ReconstructionOption General
-set /Herwig/Shower/KinematicsReconstructor:InitialStateReconOption Rapidity
 set /Herwig/Shower/ShowerHandler:SpinCorrelations No
 
-
-
 cd /Herwig/EventHandlers
-#set EventHandler:CascadeHandler        NULL 
 set EventHandler:HadronizationHandler  NULL 
 set EventHandler:DecayHandler          NULL 
 # The handler for multiple parton interactions 
-#set /Herwig/Shower/ShowerHandler:MPIHandler       NULL
 set EventHandler:Weighted No
-
-
-#read snippets/Rivet.in
-#insert /Herwig/Analysis/Rivet:Analyses 0 XXX_2015_ABC123
 
 read snippets/HepMC.in
 set /Herwig/Analysis/HepMC:PrintEvent 10000
@@ -129,19 +152,47 @@ do SplittingGenerator:DeleteFinalSplitting tau-->tau-,gamma; LtoLGammaSudakov
 
 do SplittingGenerator:DeleteFinalSplitting W+->W+,gamma; WtoWGammaSudakov
 
-# turn off intrinsic pT
-set ShowerHandler:IntrinsicPtGaussian 0.0*GeV
-set ShowerHandler:IntrinsicPtBeta    0
-set ShowerHandler:IntrinsicPtGamma   0*GeV
-set ShowerHandler:IntrinsicPtIptmax   0*GeV
 
-set ShowerHandler:EvolutionScheme pT
-set /Herwig/Shower/KinematicsReconstructor:FinalFinalWeight No
+set /Herwig/Shower/ShowerHandler:UseConstituentMasses No
+
+cd /Herwig/Particles
+
+do b:UnsetHardProcessMass
+do bbar:UnsetHardProcessMass
+do c:UnsetHardProcessMass
+do cbar:UnsetHardProcessMass
+set b:NominalMass 0*GeV
+set bbar:NominalMass 0*GeV
+set c:NominalMass 0*GeV
+set cbar:NominalMass 0*GeV
+set u:NominalMass 0*GeV
+set ubar:NominalMass 0*GeV
+set d:NominalMass 0*GeV
+set dbar:NominalMass 0*GeV
+set s:NominalMass 0*GeV
+set sbar:NominalMass 0*GeV
+
+#########################
+# LHE Writer
+#########################
 
 cd /Herwig/Analysis
 library LHEWriter.so
 create Herwig::LHEWriter /Herwig/Analysis/LHEWriter
 insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 /Herwig/Analysis/LHEWriter
+
+#########################
+# PRINT PARAMETERS
+#########################
+
+get /Herwig/Shower/AlphaQCDFSR:AlphaIn
+get /Herwig/Shower/PTCutOff:pTmin
+
+get /Herwig/Shower/AlphaQCDFSR:NPAlphaS
+get /Herwig/Shower/AlphaQCDFSR:Qmin
+get /Herwig/Shower/AlphaQCDFSR:NumberOfLoops
+get /Herwig/Shower/ShowerHandler:MaxPtIsMuF
+get /Herwig/Shower/ShowerHandler:RestrictPhasespace
 
 ##################################################
 # Save run for later usage with 'Herwig run'
