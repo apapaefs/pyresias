@@ -59,7 +59,7 @@ Nshower = 1E99
 # the cutoff scale in GeV, 0.935 GeV matches Herwig 7 
 Qc = 0.935
 # minimum pT in the shower, matches Herwig 7
-pTmin = 0.654714
+pTmin = 0.900
 
 ##########################
 # COMMAND LINE ARGUMENTS #
@@ -102,10 +102,10 @@ if outputfile == '': outputfile = inputfile.replace('.lhe','').replace('.gz','')
 #################################################
 
 # initialize alphaS class: pass the value of alphaS at mz, and mz
-aS = alphaS(0.126, 91.1876) # alphaS(MZ) = 0.126 corresponds to 0.118 in MSbar scheme
+aS = alphaS(0.1074, 91.1876) # alphaS(MZ) = 0.126 corresponds to 0.118 in MSbar scheme
 
 # CMW scheme:
-CMW = 'Factor' # 'Linear' or 'Factor' or 'None' 
+CMW = 'None' # 'Linear' or 'Factor' or 'None' 
 
 #################################################
 
@@ -113,13 +113,13 @@ CMW = 'Factor' # 'Linear' or 'Factor' or 'None'
 def Kg():
     Nf=5 # 5-flavors
     return 3.*(67./18.-1./6.*np.pi**2)-5./9.*Nf
-    
+
 # the q -> q + g splitting function
 def Pqq(z, t, Qcut, aSover):
     if CMW == 'Linear' or CMW == 'Factor':
         aS = alphaS(t, z, Qcut, aSover)
         return CF * (1 + aS/2/np.pi * Kg() + z**2) / (1.-z)
-    elif CMW == 'None': 
+    elif CMW == 'None':
         return CF * (1. + z**2)/(1.-z)
     
 # the q -> q + g splitting function *overestimate* 
@@ -132,6 +132,9 @@ def scale_of_alphaS(t, z):
 # return the true alphaS using the PDF alphaS over 2 pi
 def alphaS(t, z, Qcut, aSover):
     scale = scale_of_alphaS(t, z)
+    # if scale is < Qcut, reset scale to Qcut
+    if scale < Qcut and CMW == 'None' or CMW == 'Linear':
+        scale = Qcut
     if CMW == 'Linear':
         CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./math.pi
         return aS.alphasQ(scale)/2./math.pi * CMWFactor
@@ -139,11 +142,12 @@ def alphaS(t, z, Qcut, aSover):
         Nf = 5
         CMWFactor = np.exp(- (67 - 3 * np.pi**2 - 10/3 * Nf)/ (33 - 2*Nf) )
         scale *= CMWFactor
+        if scale < Qcut:
+            scale = Qcut
         return aS.alphasQ(scale)/2./math.pi
     elif CMW == 'None':
         return aS.alphasQ(scale)/2./math.pi
-    if scale < Qcut:
-        return aS.alphasQ(Qcut)/2./math.pi
+
     
 
 # the analytical integral of t * Gamma over z 
@@ -165,7 +169,16 @@ def get_alphaS_over(Qcut):
         scale = minscale
     else:
         scale = Qcut
-    alphaS_over = aS.alphasQ(scale)/2./math.pi
+    if CMW == 'Linear':
+        CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./math.pi
+        alphaS_over = aS.alphasQ(scale)/2./math.pi * CMWFactor
+    elif CMW == 'Factor':
+        Nf = 5
+        CMWFactor = np.exp(- (67 - 3 * np.pi**2 - 10/3 * Nf)/ (33 - 2*Nf) )
+        scale *= CMWFactor
+        alphaS_over = aS.alphasQ(scale)/2./math.pi
+    elif CMW == 'None':
+        alphaS_over = aS.alphasQ(scale)/2./math.pi
     if debug: print('alpha_S overestimate set to', alphaS_over, 'for scale=', scale, 'GeV')
     return alphaS_over
 
@@ -192,12 +205,13 @@ def Get_tEmission(Q, Qcut, R, tfac, aSover):
     tolerance = 1E-4 # the tolerance for the solution
     popt = [Q, Qcut, R, aSover] # options to pass to the function for the solver
     EmissionFunc_arg = lambda tEm : EmissionScaleFunc(tEm, *popt) # the function in a form appropriate for the solver
-    # calculate the solution using "Ridder's" method
-    sol, results = scipy.optimize.ridder(EmissionFunc_arg, math.log(tfac*Qcut**2/Q**2), 0., xtol=tolerance, full_output=True, maxiter=10000)
+    # calculate the solution 
+    sol, results = scipy.optimize.brenth(EmissionFunc_arg, math.log(tfac*Qcut**2/Q**2), 0., xtol=tolerance, full_output=True, maxiter=100000)
     # get the actual evolution variable from the solution
     tEm_sol = Q**2 * math.exp( sol )
     # if a solution has not been found, terminate the evolution        
     if abs(EmissionFunc_arg(sol)) > tolerance:
+            if debug: print('\tEmission fails due to solution not achieving required tolerance', EmissionFunc_arg(sol), 'vs', tolerance)
             return Q**2, [], False
     # otherwise return the emission scale and continue
     return tEm_sol, results, True
@@ -226,6 +240,7 @@ def Generate_Emission(Q, Qcut, tfac, aSover):
     pTsqEm = Get_pTsq(tEm, zEm)
     # check if below cutoff
     if pTsqEm < pTmin**2:
+        if debug: print('\t\temission rejected due to pT <  pTmin:', np.sqrt(pTsqEm), '<', pTmin)
         generated = False
     if debug: print('\tcandidate transverse momentum squared =', pTsqEm)
     # now check the conditions to accept or reject the emission:
@@ -235,16 +250,16 @@ def Generate_Emission(Q, Qcut, tfac, aSover):
         generated = False
     # compare the splitting function overestimate prob to a random number
     if Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm) < R3:
-        if debug: print('\t\temission rejected due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
+        if debug: print('\t\temission rejected due to splitting function overestimate, p=', Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm), 'R=', R3)
         generated = False
     else:
-        if debug: print('\t\temission NOT rejected due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
+        if debug: print('\t\temission NOT rejected due to splitting function overestimate, p=', Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm), 'R=', R3)
     # compare the alphaS overestimate prob to a random number
     if alphaS(tEm, zEm, Qcut, aSover)/aSover < R4:
-        if debug: print('\t\temission rejected due to alphaS overestimate, p=', alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission rejected due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
         generated = False
     else:
-        if debug: print('\t\temission NOT rejected due to alphaS overestimate, p=', alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission NOT rejected due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
     # get the virtual mass squared:
     MsqEm = Get_mvirtsq(tEm, zEm)
     if generated == False: # rejected emission
@@ -256,7 +271,7 @@ def Generate_Emission(Q, Qcut, tfac, aSover):
 
 # the function that performs the evolution of a single particle (e.g. from an LHE file)
 # returns a list of all outgoing particles
-def EvolveParticle(p, Qmin, aSover):
+def EvolveParticle(p, Qmin, Q2start, aSover):
     # the minimum evolution scale
     tEm_min = Qmin**2
     # counter for the number of emissions:
@@ -268,9 +283,9 @@ def EvolveParticle(p, Qmin, aSover):
     fac_tEm = 3.9999 # minimum value for the cutoff to try emissions = fac_tEm * Qcut**2 (should be less than the actual cutoff)
     fac_cutoff = 4. # actual cutoff = fac_cutoff * Qc**2
     # star the evolution
-    tEm = p[5]**2 # initial value of the evolution variable = the energy of the particle
+    tEm = Q2start # initial value of the evolution variable = COM energy in this case
     zEm = 1 # initial value of the momentum fraction
-    if debug: print('generating evolution for E=', p[5], 'GeV\n')
+    if debug: print('generating evolution for starting scale sqrt(t)=', np.sqrt(Q2start), 'GeV\n')
     # continue the evolution while we are above the cutoff:
     while np.sqrt(tEm)*zEm > np.sqrt(fac_cutoff*tEm_min):
         # evolve:
@@ -311,7 +326,6 @@ def EvolveParticle(p, Qmin, aSover):
     if debug:
         print('no further emissions, evolution ended')
         print('total number of emissions=', Nem)
-        print('\n')
         print('-----')
         print('Emissions table:')
         PrintEmissions(Emissions)
@@ -334,8 +348,9 @@ def Shower(particles, Qmin, aSover):
         elif abs(p[0])>0 and abs(p[0])<6 and p[1]==1: # treat quarks up to the b-quark as massless, ignore top quarks for now
             if debug:
                 print('Showering quark:', p[0])
-            EmissionVariables = EvolveParticle(p, Qmin, aSover)
-            ppartner = find_color_partner(p, particles)
+            # find the color partner and calculate the starting scale
+            ppartner, Q2start = find_color_partner(p, particles)
+            EmissionVariables = EvolveParticle(p, Qmin, Q2start, aSover)
             # since we are already in the back-to-back frame in e+e- -> qqbar, and we are considering light quarks,
             # ppartner is already the n vector (reference vector) and p is p in the Sudakov basis.
             # reconstruct momenta according to the Sudakov decomposition from the emission variables, p and n
@@ -354,11 +369,18 @@ def Shower(particles, Qmin, aSover):
 # find the color partner of a given particle part in particles
 def find_color_partner(part, particles):
     """Returns the color partner of particle part"""
+    partner = []
     for pc in particles:
         if part[7] == pc[8] and part[8] == pc[7]:
             partner = pc
             if debug: print('Color partner of particle', part, 'found:', pc)
-    return partner
+    if len(partner) != 0:
+        # set the starting scale as just the invariant mass of the sum of the partners
+        Q2start = (part[5]+partner[5])**2 - ((part[2]+partner[2])**2 + (part[3]+partner[3])**2 + (part[4]+partner[4])**2)
+    else:
+        Q2start = 0
+    return partner, Q2start
+
 
 # reconstruct the particles in the Sudakov basis (back-to-back frame)
 def reconstructSudakov(pin, nin, EmissionVariables):
@@ -391,10 +413,10 @@ def reconstructSudakov(pin, nin, EmissionVariables):
         alpha = alpha_prime * (1-z) # alpha of emitted gluon
         alpha_prime *= z # alpha of evolving quark
         
-        # calculate the qT 4-vectors (0, 0, px, py, pz, E)
+        # calculate the qT 4-vectors 
         kT = [pT*np.cos(phi), pT*np.sin(phi), 0, 0] # (px, py, pz, E)
-        qT = [0, 0, qT_prime[2]*(1-z) - kT[0], qT_prime[3]*(1-z) - kT[1], 0, 0]
-        qT_prime =  [0, 0, qT_prime[2]*z + kT[0], qT_prime[3]*z + kT[1], 0, 0]
+        qT = [0, 0, qT_prime[2]*(1-z) - kT[0], qT_prime[3]*(1-z) - kT[1], 0, 0] # (0, 0, px, py, pz, E)
+        qT_prime =  [0, 0, qT_prime[2]*z + kT[0], qT_prime[3]*z + kT[1], 0, 0] # (0, 0, px, py, pz, E)
         # append to lists:
         alphas.append(alpha) 
         alphas_prime.append(alpha_prime)
@@ -642,7 +664,7 @@ showeredEvents = []
 
 for i, particles in enumerate(tqdm(events)):
     # get the particles after parton shower and the showered jets: 
-    showeredParticles, showeredJets = Shower(particles, Qc, alphaS_over)
+    showeredParticles, showeredJets = Shower(particles, pTmin, alphaS_over)
     # apply momentum conservation 
     showeredParticles = GlobalMomCons(showeredParticles, showeredJets)
     if debug is True or printevents is True:

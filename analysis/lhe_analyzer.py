@@ -238,20 +238,18 @@ def histogram_multi_xsec(DATA_array, CrossSection_array, plot_type, plotnames_mu
         ax.set_xscale('log')
     else:
         ax.set_xscale('linear')
-   
-    minor_locator = ticker.AutoMinorLocator(4)
-    ax2.xaxis.set_minor_locator(minor_locator)
-    ax.yaxis.set_minor_locator(minor_locator)
-    ax2.yaxis.set_minor_locator(minor_locator)
-    # set the limits on the x and y axes if required below:
-    # (this is not implemented automatically yet)
-    #xmin = 0.
-    #xmax = 1500.
-    #ymin = 0.
-    #ymax = 0.09
-    #plt.xlim([0,400])
-    #plt.ylim([0.06,0.15])
 
+
+    # set the x axis ticks automatically
+    ax.tick_params(labelbottom=False)
+    ax2.xaxis.set_major_locator(ticker.AutoLocator())
+    ax2.xaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax2.yaxis.set_major_locator(ticker.AutoLocator())
+    ax2.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax.yaxis.set_major_locator(ticker.AutoLocator())
+    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+
+    # legend
     ax.legend()
     ax.legend(loc="upper right", numpoints=1, frameon=False, prop={'size':8})
     ax.set_xticklabels('')
@@ -469,6 +467,11 @@ def analyze(events, weights):
     output_dictionary['sumpvecmag'] = []
     output_dictionary['thrust'] = []
     output_dictionary['yg'] = []
+    output_dictionary['Eq'] = []
+    output_dictionary['Eg'] = []
+    output_dictionary['pzq'] = []
+    output_dictionary['pzg'] = []
+    output_dictionary['ng'] = []
     # fastjet:
     jetalgo = fastjet.antikt_algorithm
     jetR = 0.4
@@ -479,6 +482,7 @@ def analyze(events, weights):
         sumpvec = np.array([0.,0.,0.])
         momtocluster = []
         momvec = []
+        ng = 0 # count the number of emitted gluons
         for p in particles:
             if p[1] == 1:
                 #print('p[2], p[3], p[4]=',p[2], p[3], p[4])
@@ -487,15 +491,25 @@ def analyze(events, weights):
                 momtocluster.append([p[2], p[3], p[4], p[5]])
                 momvec.append(np.array([p[2], p[3], p[4]]))
             if p[0] == 21:
+                ng += 1
                 pt = math.sqrt(p[2]**2 + p[3]**2)
                 output_dictionary['ptg'].append(pt)
                 y = 0.5 * np.log( (p[5] + p[4])/(p[5] - p[4]) )
                 output_dictionary['yg'].append(y)
+                pz = p[4]
+                E = p[5]
+                output_dictionary['pzg'].append(pz)
+                output_dictionary['Eg'].append(E)
             if abs(p[0])>0 and abs(p[0])<6:
                 costheta = p[4]/math.sqrt(p[2]**2 + p[3]**2 + p[4]**2)
                 output_dictionary['costheta'].append(costheta)
                 pt = math.sqrt(p[2]**2 + p[3]**2)
+                E = p[5]
+                pz = p[4]
+                output_dictionary['Eq'].append(E)
                 output_dictionary['pt'].append(pt)
+                output_dictionary['pzq'].append(pz)
+        output_dictionary['ng'].append(ng)
         #Thrust = get_thrust(momvec)
         #output_dictionary['thrust'].append(Thrust)
         sumpvecmag = math.sqrt(sumpvec[0]**2 + sumpvec[1]**2 + sumpvec[2]**2)
@@ -548,9 +562,17 @@ CrossSections = [1, 1]
 # Note that "histogram_multi" takes as input in DATA_array an array of data points,
 # hence the extra [] there and in the plotnames_multi
 if len(sys.argv) == 3:
-    histogram_multi_xsec([output['pt'], output2['pt']], [1.0, 1.0], 'pt', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,120, 5))
-    histogram_multi_xsec([output['ptg'], output2['ptg']], [1.0, 1.0], 'ptg', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,100,5),ylogbool=True)
+    histogram_multi_xsec([output['pt'], output2['pt']], [1.0, 1.0], 'pt', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of outgoing quarks [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,120, 5))
+    histogram_multi_xsec([output['ptg'], output2['ptg']], [1.0, 1.0], 'ptg', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,210,5),ylogbool=True)
     histogram_multi_xsec([output['yg'], output2['yg']], [1.0, 1.0], 'yg', [r'HERWIG 7', r'Pyresias'], xlabel=r'Rapidity of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} y}$', custom_bins=np.linspace(-3,3,50))
+    histogram_multi_xsec([output['Eq'], output2['Eq']], [1.0, 1.0], 'Eq', [r'HERWIG 7', r'Pyresias'], xlabel=r'Energy of outgoing quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} E}$', custom_bins=np.arange(0,120,2))
+    histogram_multi_xsec([output['pzq'], output2['pzq']], [1.0, 1.0], 'pzq', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_z$ of outgoing quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_z}$', custom_bins=np.arange(0,120,5))
+    histogram_multi_xsec([output['pzg'], output2['pzg']], [1.0, 1.0], 'pzg', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_z$ of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_z}$', custom_bins=np.arange(0,120,2))
+    histogram_multi_xsec([output['Eg'], output2['Eg']], [1.0, 1.0], 'Eg', [r'HERWIG 7', r'Pyresias'], xlabel=r'Energy of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} E}$', custom_bins=np.arange(0,220,2))
+    histogram_multi_xsec([output['ng'], output2['ng']], [1.0, 1.0], 'ng', [r'HERWIG 7', r'Pyresias'], xlabel=r'number of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} n_g}$ ', custom_bins=np.arange(0,15, 1))
+
+
+
 elif len(sys.argv) == 2:
     histogram_multi_xsec([output['pt']], [1.0], 'pt', ['LO'], xlabel=r'$p_T$ [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,210, 10))
 elif len(sys.argv) == 4:

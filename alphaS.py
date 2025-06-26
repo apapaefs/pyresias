@@ -1,4 +1,6 @@
 import numpy as np
+import math
+
 
 # QCD Constants:
 # QCD quark charge = (N^2 - 1)/2N for N colours
@@ -66,7 +68,7 @@ class alphaS:
     # function to access alphaS at scale Q (not squared!)
     def alphasQ(self, Q):
         if self.order == 0:
-            return self.As1(Q**2)
+            return self.As0(Q**2)
         else:
             return self.As1(Q**2)
 
