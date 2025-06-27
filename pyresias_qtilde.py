@@ -13,7 +13,7 @@ from scipy.integrate import quad # for numerical integrals
 from LHEReader import * # read LHE files
 from HEPMCWriter import * # write HepMC files using pyhepmc
 from LHEWriter import * # write LHE file
-from alphaS import * # alphaS at LO and NLO
+from alphaS_HW import * # alphaS at LO and NLO
 
 ################################################
 print('\nPyresias-qTilde: a toy parton shower\n')
@@ -201,23 +201,22 @@ def EmissionScaleFunc(logt_over_Qsq, Q, Qcut, R, aSover):
     return logt_over_Qsq - (1./r) * math.log(R)
 
 # a function that calculates (numerically) the emission scale given the initial scale Q, cutoff Qc and random number R
-def Get_tEmission(Q, Qcut, R, tfac, aSover):
-    tolerance = 1E-4 # the tolerance for the solution
-    popt = [Q, Qcut, R, aSover] # options to pass to the function for the solver
-    EmissionFunc_arg = lambda tEm : EmissionScaleFunc(tEm, *popt) # the function in a form appropriate for the solver
-    # calculate the solution 
-    sol, results = scipy.optimize.brenth(EmissionFunc_arg, math.log(tfac*Qcut**2/Q**2), 0., xtol=tolerance, full_output=True, maxiter=100000)
-    # get the actual evolution variable from the solution
-    tEm_sol = Q**2 * math.exp( sol )
-    # if a solution has not been found, terminate the evolution        
-    if abs(EmissionFunc_arg(sol)) > tolerance:
-            if debug: print('\tEmission fails due to solution not achieving required tolerance', EmissionFunc_arg(sol), 'vs', tolerance)
-            return Q**2, [], False
-    # otherwise return the emission scale and continue
-    return tEm_sol, results, True
+def Get_tEmission_direct(Q, Qcut, R, aSover):
+    upper = tGamma(zp_over(Q**2, Qcut), aSover)
+    lower = tGamma(zm_over(Q**2, Qcut), aSover)
+    if lower > upper:
+        if debug: print('\tEmission fails due upper < lower')
+        return Q**2, [], False
+    c = 1/(upper - lower)
+    # get the actual evolution variable
+    tEm_sol = Q**2 * R**c
+    if math.isnan(tEm_sol) or tEm_sol < 4*Qcut**2:
+        if debug: print('\tEmission fails due to NaN tEm or tEm_sol < 4*Qcut**2, tEm_sol=', tEm_sol)
+        return Q**2, [], False
+    return tEm_sol, [], True
 
 # function that generates emissions:
-def Generate_Emission(Q, Qcut, tfac, aSover):
+def Generate_Emission(Q, Qcut, aSover):
     generated = True
     # generate random numbers
     R1 = random()
@@ -225,43 +224,65 @@ def Generate_Emission(Q, Qcut, tfac, aSover):
     R3 = random()
     R4 = random()
     # solve for the (candidate) emission scale:
-    tEm, results, continueEvolution = Get_tEmission(Q, Qcut, R1, tfac, aSover)
+    tEm, results, continueEvolution = Get_tEmission_direct(Q, Qcut, R1, aSover)
     # if no solution is found then end branch
     if continueEvolution == False:
         zEm = 1.
         pTsqEm = 0.
         MsqEm = 0.
+        if debug: print('continueEvolution is False')
         return tEm, zEm, pTsqEm, MsqEm, generated, continueEvolution
     if debug: print('\tcandidate emission scale, sqrt(tEm)=', math.sqrt(tEm))
+    if tEm < 4*Qcut**2:
+        if debug: print('\t\temission REJECTED due to tEm < 4*Qcut**2: tEm, Qcut=', tEm, Qcut)
+        generated = False
+    # calculate actual limits on z+, z- and check if they are consistent:
+    zp = zp_over(tEm, Qcut)
+    zm = zm_over(tEm, Qcut)
+    if zm < 0 or zp < 0:
+        if debug: print('\t\temission REJECTED due to zm < 0 or zp < 0: zm,zp=', zm, zp)
+        generated = False
+    if zm > zp:
+        if debug: print('\t\temission REJECTED due to zm > zp: zm=', zm, 'zp=', zp)
+        generated = False
     # get the (candidate) z of the emission
-    zEm = Get_zEmission(tEm, pTmin, R2, aSover) # lower limit is related to pTmin
-    if debug: print('\tcandidate momentum fraction, zEm=', zEm)
+    zEm = Get_zEmission(tEm, Qcut, R2, aSover)
+    if debug: print('\t\tcandidate momentum fraction, zEm=', zEm)
+    # check that zEm is within allowed limits:
+    if zEm < zm or zEm > zp:
+        if debug: print('\t\temission REJECTED due to zEm < zm or zEm > zp: zEm=', zEm, 'zm=', zm, 'zp=', zp)
+        generated = False
+    if zEm < zm or zEm > zp:
+        if debug: print('\t\temission REJECTED due to zEm < zm or zEm > zp: zEm=', zEm, 'zm=', zm, 'zp=', zp)
+        generated = False
     # get the transverse momentum 
     pTsqEm = Get_pTsq(tEm, zEm)
+    if debug: print('\t\tcandidate transverse momentum =', np.sqrt(pTsqEm))
     # check if below cutoff
     if pTsqEm < pTmin**2:
-        if debug: print('\t\temission rejected due to pT <  pTmin:', np.sqrt(pTsqEm), '<', pTmin)
+        if debug: print('\t\temission REJECTED due to pT <  pTmin:', np.sqrt(pTsqEm), '<', pTmin)
         generated = False
-    if debug: print('\tcandidate transverse momentum =', np.sqrt(pTsqEm))
     # now check the conditions to accept or reject the emission:
     # check if the transverse momentum is physical:
     if pTsqEm < 0.:
-        if debug: print('\t\temission rejected due to negative pT**2=', pTsqEm)
+        if debug: print('\t\temission REJECTED due to negative pT**2=', pTsqEm)
         generated = False
     # compare the splitting function overestimate prob to a random number
     if Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm) < R3:
-        if debug: print('\t\temission rejected due to splitting function overestimate, p=', Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm), 'R=', R3)
+        if debug: print('\t\temission REJECTED due to splitting function overestimate, p=', Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm), 'R=', R3)
         generated = False
     else:
         if debug: print('\t\temission NOT rejected due to splitting function overestimate, p=', Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm), 'R=', R3)
     # compare the alphaS overestimate prob to a random number
     if alphaS(tEm, zEm, Qcut, aSover)/aSover < R4:
-        if debug: print('\t\temission rejected due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission REJECTED due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
         generated = False
     else:
         if debug: print('\t\temission NOT rejected due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
     # get the virtual mass squared:
     MsqEm = Get_mvirtsq(tEm, zEm)
+    if debug and generated == True:
+        print('\t\t---> Emission accepted!')
     if generated == False: # rejected emission
         zEm = 1.
         pTsqEm = 0.
@@ -280,7 +301,6 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
     Emissions = []
     # array to store momenta of outgoing particles:
     Momenta = []
-    fac_tEm = 3.9999 # minimum value for the cutoff to try emissions = fac_tEm * Qcut**2 (should be less than the actual cutoff)
     fac_cutoff = 4. # actual cutoff = fac_cutoff * Qc**2
     # star the evolution
     tEm = Q2start # initial value of the evolution variable = COM energy in this case
@@ -289,7 +309,7 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
     # continue the evolution while we are above the cutoff:
     while np.sqrt(tEm)*zEm > np.sqrt(fac_cutoff*tEm_min):
         # evolve:
-        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, math.sqrt(tEm_min), fac_tEm, aSover)
+        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, math.sqrt(tEm_min), aSover)
         # if the solver could not find a solution, end the evolution
         if continueEvolution == False:
             if debug:
