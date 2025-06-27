@@ -51,12 +51,6 @@ set LesHouchesHandler:PartonExtractor /Herwig/Partons/EEExtractor
 set LesHouchesHandler:CascadeHandler /Herwig/Shower/ShowerHandler
 set LesHouchesHandler:DecayHandler /Herwig/Decays/DecayHandler
 
-#set LesHouchesHandler:HadronizationHandler /Herwig/Hadronization/ClusterHadHandler
-#set /Herwig/Shower/PartnerFinder:QEDPartner IIandFF
-#set /Herwig/Shower/ShowerHandler:DoISR Yes
-#set /Herwig/Shower/ShowerHandler:MaxPtIsMuF Yes
-#set /Herwig/Shower/ShowerHandler:RestrictPhasespace Yes
-
 # set the weight option (e.g. for MC@NLO)
 set LesHouchesHandler:WeightOption VarNegWeight
 
@@ -79,8 +73,7 @@ create ThePEG::Cuts /Herwig/Cuts/NoCuts
 ####################################################################
 
 create ThePEG::LesHouchesFileReader LesHouchesReader
-#set LesHouchesReader:FileName eejj_ECM206_1E6.lhe.gz
-set LesHouchesReader:FileName eejj_ECM206.lhe.gz
+set LesHouchesReader:FileName eejj_ECM206_1E6.lhe.gz
 set LesHouchesReader:AllowedToReOpen No
 set LesHouchesReader:InitPDFs 0
 set LesHouchesReader:Cuts /Herwig/Cuts/NoCuts
@@ -116,8 +109,6 @@ set /Herwig/Analysis/Basics:CheckQuark false # removes warning that there are qu
 ##################################################
 # LHC physics parameters (override defaults here) 
 ##################################################
-# e.g if different top mass used
-#set /Herwig/Particles/t:NominalMass 173.0
 
 cd /Herwig/Shower
 do SplittingGenerator:DeleteFinalSplitting g->g,g; GtoGGSudakovFSR
@@ -187,7 +178,6 @@ insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 /Herwig/Analysis/LHE
 
 get /Herwig/Shower/AlphaQCDFSR:AlphaIn
 get /Herwig/Shower/PTCutOff:pTmin
-
 get /Herwig/Shower/AlphaQCDFSR:NPAlphaS
 get /Herwig/Shower/AlphaQCDFSR:Qmin
 get /Herwig/Shower/AlphaQCDFSR:NumberOfLoops
