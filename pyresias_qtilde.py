@@ -242,7 +242,7 @@ def Generate_Emission(Q, Qcut, tfac, aSover):
     if pTsqEm < pTmin**2:
         if debug: print('\t\temission rejected due to pT <  pTmin:', np.sqrt(pTsqEm), '<', pTmin)
         generated = False
-    if debug: print('\tcandidate transverse momentum squared =', pTsqEm)
+    if debug: print('\tcandidate transverse momentum =', np.sqrt(pTsqEm))
     # now check the conditions to accept or reject the emission:
     # check if the transverse momentum is physical:
     if pTsqEm < 0.:
@@ -315,7 +315,7 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
             pT = math.sqrt(pTsqEm)
             # random phi angle
             phi = (2*random() - 1)*np.pi
-            Emissions.append([math.sqrt(tEm), zEm, pT, math.sqrt(MsqEm), phi])
+            Emissions.append([tEm, zEm, pT, MsqEm, phi])
             # generate the momenta of the outgoing gluons with respect to the quark direction
             #Ei = np.sqrt( (1-zEm)**2 * pmag**2 + pT**2 )
             #Momenta.append([21, 1, pT*np.cos(phi), pT*np.sin(phi), (1-zEm)*pmag, Ei, 0])
@@ -404,30 +404,46 @@ def reconstructSudakov(pin, nin, EmissionVariables):
     pdotn = dot4vec(p,n) # get p.n
     if len(EmissionVariables) == 0:
         return [p]
-    # get the alphas and qTs
+    qtildes_sq = [] # the evolution variables squared
+    phis = [] # the generated phi angles
+    pTs = [] # the pTs of the splittings
+    msqs = [] # the virtualities squared
+    
+    # get the information generated in each emission
     for Emission in EmissionVariables:
+        qtildesq = Emission[0] # the evolution variable t = qtilde^2
         z = Emission[1] # get the momentum fraction of the emission
         pT = Emission[2] # get the pT of the emission
+        msq = Emission[3] # the virtuality of the emission
         phi = Emission[4] # get the phi of the emission
+        
         # get the alphas for the quark and emitted gluon: 
         alpha = alpha_prime * (1-z) # alpha of emitted gluon
         alpha_prime *= z # alpha of evolving quark
         
-        # calculate the qT 4-vectors 
-        kT = [pT*np.cos(phi), pT*np.sin(phi), 0, 0] # (px, py, pz, E)
-        qT = [0, 0, qT_prime[2]*(1-z) - kT[0], qT_prime[3]*(1-z) - kT[1], 0, 0] # (0, 0, px, py, pz, E)
-        qT_prime =  [0, 0, qT_prime[2]*z + kT[0], qT_prime[3]*z + kT[1], 0, 0] # (0, 0, px, py, pz, E)
         # append to lists:
         alphas.append(alpha) 
         alphas_prime.append(alpha_prime)
+        qtildes_sq.append(qtildesq)
+        phis.append(phi)
+        pTs.append(pT)
+        msqs.append(msq)
+ 
+        # calculate the qT 4-vectors
+        kT = [pT*np.cos(phi), pT*np.sin(phi), 0, 0] # (px, py, pz, E)
+        qT = [0, 0, qT_prime[2]*(1-z) - kT[0], qT_prime[3]*(1-z) - kT[1], 0, 0] # (0, 0, px, py, pz, E)
+        qT_prime =  [0, 0, qT_prime[2]*z + kT[0], qT_prime[3]*z + kT[1], 0, 0] # (0, 0, px, py, pz, E)
         qTs.append(qT)
         qTs_prime.append(qT_prime)
+    msqs.append(0)
         
     # at this point, alphas and qTs have been calculated for each particle 
     # find the betas:
     for i in range(len(alphas)):
-        beta = pT**2 / 2 / alphas[i] / pdotn
-        beta_prime = pT**2/ 2 / alphas_prime[i] / pdotn
+        pTisq = qTs[i][2]**2+qTs[i][3]**2
+        beta = pTisq / (2 * alphas[i] * pdotn)
+        pTisq_prime = qTs_prime[i][2]**2 + qTs_prime[i][3]**2 
+        beta_prime = pTisq_prime / (2 * alphas_prime[i] * pdotn)
         # append
         betas.append(beta)
         betas_prime.append(beta_prime)
@@ -437,6 +453,7 @@ def reconstructSudakov(pin, nin, EmissionVariables):
         py = alphas[i] * p[3] + betas[i] * n[3] + qTs[i][3]
         pz = alphas[i] * p[4] + betas[i] * n[4]
         E = alphas[i] * p[5] + betas[i] * n[5]
+        #print('Invariant mass SQUARED of emitted gluon=', E**2 - px**2 - py**2 - pz**2)
         # append to list:
         Momenta.append([21, 1, px, py, pz, E, 0])
     # find the final momentum of the quark: (the last instance)
@@ -445,6 +462,7 @@ def reconstructSudakov(pin, nin, EmissionVariables):
     pz = alphas_prime[-1] * p[4] + betas_prime[-1] * n[4]
     E = alphas_prime[-1] * p[5] + betas_prime[-1] * n[5]
     Momenta.append([pin[0], 1, px, py, pz, E, 0])
+    
     return Momenta
     
          
@@ -539,7 +557,7 @@ def GlobalMomCons(showeredParticles, showeredJets):
             kres += np.sqrt(x * pj2array[i] + qj2array[i])
         kres = kres - sqrthatS
         return kres
-    kres = np.sqrt(optimize.root(keqn, 1.01).x[0])
+    kres = np.sqrt(optimize.root(keqn, 0.99).x[0])
     if debug: print('kres=', kres)
     # now boost the momenta of the particles inside the jets according to the calculated kres:
     showeredParticlesBoosted = []

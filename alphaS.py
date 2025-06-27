@@ -12,7 +12,7 @@ CF = (NC * NC - 1.) / (2. * NC)
 # the alphaS class
 class alphaS:
     """An alphaS class"""
-    def __init__(self, asmz, mz, mb=4.75, mc=1.27, order=1):
+    def __init__(self, asmz, mz, mb=4.2, mc=1.25, order=2):
         self.order = order
         self.asmz = asmz
         self.mz = mz
