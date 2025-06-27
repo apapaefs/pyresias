@@ -67,7 +67,7 @@ class alphaS:
 
     # function to access alphaS at scale Q (not squared!)
     def alphasQ(self, Q):
-        if self.order == 0:
+        if self.order == 1:
             return self.As0(Q**2)
         else:
             return self.As1(Q**2)

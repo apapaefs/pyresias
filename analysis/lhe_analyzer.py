@@ -271,6 +271,112 @@ def histogram_multi_xsec(DATA_array, CrossSection_array, plot_type, plotnames_mu
     plt.savefig(infile.replace('.dat','.pdf'), bbox_inches='tight')
     plt.close(fig)
 
+
+# function to plot histograms
+# CrossSection_array contains ARRAYS of cross sections 
+# DATA_array contains ARRAYS of data for each event. Each array represents a different type of input (e.g. a run with different parameters, etc.). 
+# plot_type is simply the main name of the plot
+# plotnames_multi has to be an array of equal size to DATA_array
+# custom_bins can be provided for the desired observable
+def histogram_multi_unnorm(DATA_array, plot_type, plotnames_multi, xlabel='', ylabel='fraction/bin', nbins=50, title='', custom_bins=[], ylogbool=False, xlogbool=False):
+    print('---')
+    print('plotting', plot_type)
+    reset_color()
+    # plot settings ########
+    ylab = ylabel # the ylabel
+    xlab = xlabel # the x label
+    # log scale?
+    ylog = ylogbool # whether to plot y in log scale
+    xlog = xlogbool # whether to plot x in log scale
+
+    # construct the axes for the plot
+    fig = plt.figure(constrained_layout=True)
+    fig.get_layout_engine().set(w_pad=0 / 72, h_pad=0 / 72, hspace=0,
+                            wspace=0)
+    gs = gridspec.GridSpec(4, 4,figure=fig,wspace=0, hspace=0)
+    ax = fig.add_subplot(gs[:3, :])
+    ax2 = fig.add_subplot(gs[3, :])
+    gs.update(wspace=0,hspace=0)
+    
+    # loop over the DATA in the DATA_array
+    # get the errors per bin and normalize so that we obtain fraction of events/bin
+    dd = 0
+    Yarray = []
+    for DATA in DATA_array:
+        if len(custom_bins) == 0:
+            bins, edges = np.histogram(np.array(DATA), bins=nbins)
+        else:
+            bins, edges = np.histogram(np.array(DATA), bins=custom_bins)
+        errors = np.divide(np.sqrt(bins), bins, out=np.zeros_like(np.sqrt(bins)), where=bins!=0.)
+       
+        errors = bins*errors
+        #print(bins)
+        #print(errors)
+        left,right = edges[:-1],edges[1:]
+        X = np.array([left,right]).T.flatten()
+        Y = np.array([bins,bins]).T.flatten()
+        Xc = np.array([0.5*(left+right)]).T.flatten()
+        Yc = np.array([bins]).T.flatten()
+
+        Yarray.append(np.array(Yc))
+        
+        ax.plot(X,Y, label=plotnames_multi[dd], color=next_color(), lw=1)
+        #center = (edges[:-1] + edges[1:]) / 2
+        #plt.errorbar(center, bins, yerr=errors, color=same_color(), lw=0, elinewidth=1, capsize=1)
+        dd = dd+1
+    
+    # set the ticks, labels and limits etc.
+    ax.set_ylabel(ylab, fontsize=20)
+    ax2.set_ylabel('Pyr./HW7')
+    ax2.set_ylim(0.5,2.0)
+    ax2.set_xlabel(xlab, fontsize=20)
+    ax.set_xlim([X[0], X[-1]])
+    ax2.set_xlim([X[0], X[-1]])
+
+    ax2.plot(Xc,Yarray[1]/Yarray[0], color='red', marker='o', markersize=3, lw=0)
+    ax2.hlines(y=1, xmin=X[0], xmax=X[-1], color='black', ls='--')
+    # choose x and y log scales
+    if ylog:
+        ax.set_yscale('log')
+    else:
+        ax.set_yscale('linear')
+    if xlog:
+        ax.set_xscale('log')
+    else:
+        ax.set_xscale('linear')
+
+
+    # set the x axis ticks automatically
+    ax.tick_params(labelbottom=False)
+    ax2.xaxis.set_major_locator(ticker.AutoLocator())
+    ax2.xaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax2.yaxis.set_major_locator(ticker.AutoLocator())
+    ax2.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+    ax.yaxis.set_major_locator(ticker.AutoLocator())
+    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+
+    # legend
+    ax.legend()
+    ax.legend(loc="upper right", numpoints=1, frameon=False, prop={'size':8})
+    ax.set_xticklabels('')
+    ax.set_xticks([])
+
+    
+    # set the title of the figure
+    if title != '':
+        ax.set_title(title)
+    
+    # save the figure
+    print('saving the figure')
+    # save the figure in PDF format
+    if outputfiletag != '':
+        infile = plot_type + '_unnorm-' + outputfiletag + '.dat'
+    else:
+        infile = plot_type + '_unnorm.dat'
+    print('output in', infile.replace('.dat','.pdf'))
+    plt.savefig(infile.replace('.dat','.pdf'), bbox_inches='tight')
+    plt.close(fig)
+
     
 # function to plot histograms
 # DATA_array contains ARRAYS of data for each event. Each array represents a different type of input (e.g. a run with different parameters, etc.). 
@@ -576,6 +682,15 @@ if len(sys.argv) == 3:
     histogram_multi_xsec([output['ng'], output2['ng']], [1.0, 1.0], 'ng', [r'HERWIG 7', r'Pyresias'], xlabel=r'number of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} n_g}$ ', custom_bins=np.arange(0,15, 1))
     histogram_multi_xsec([output['minvg'], output2['minvg']], [1.0, 1.0], 'minvg', [r'HERWIG 7', r'Pyresias'], xlabel=r'invariant mass SQUARED of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} m_g}$ [GeV$^{-1}$]', custom_bins=np.arange(-20,20,1),ylogbool=True)
 
+    histogram_multi_unnorm([output['pt'], output2['pt']], 'pt', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of outgoing quarks [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,120, 5))
+    histogram_multi_unnorm([output['ptg'], output2['ptg']], 'ptg', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,110,5),ylogbool=True)
+    histogram_multi_unnorm([output['yg'], output2['yg']], 'yg', [r'HERWIG 7', r'Pyresias'], xlabel=r'Rapidity of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} y}$', custom_bins=np.linspace(-3,3,50))
+    histogram_multi_unnorm([output['Eq'], output2['Eq']], 'Eq', [r'HERWIG 7', r'Pyresias'], xlabel=r'Energy of outgoing quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} E}$', custom_bins=np.arange(0,120,2))
+    histogram_multi_unnorm([output['pzq'], output2['pzq']], 'pzq', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_z$ of outgoing quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_z}$', custom_bins=np.arange(0,120,5))
+    histogram_multi_unnorm([output['pzg'], output2['pzg']], 'pzg', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_z$ of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_z}$', custom_bins=np.arange(0,120,2))
+    histogram_multi_unnorm([output['Eg'], output2['Eg']], 'Eg', [r'HERWIG 7', r'Pyresias'], xlabel=r'Energy of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} E}$', custom_bins=np.arange(0,220,2))
+    histogram_multi_unnorm([output['ng'], output2['ng']], 'ng', [r'HERWIG 7', r'Pyresias'], xlabel=r'number of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} n_g}$ ', custom_bins=np.arange(0,15, 1))
+    histogram_multi_unnorm([output['minvg'], output2['minvg']], 'minvg', [r'HERWIG 7', r'Pyresias'], xlabel=r'invariant mass SQUARED of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} m_g}$ [GeV$^{-1}$]', custom_bins=np.arange(-20,20,1),ylogbool=True)
 
 
 elif len(sys.argv) == 2:
