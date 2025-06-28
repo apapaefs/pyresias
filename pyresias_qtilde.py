@@ -191,16 +191,7 @@ def Get_pTsq(t, z): return z**2 * (1-z)**2 * t
 # calculate the virtual mass-squared of the emitting particle
 def Get_mvirtsq(t,z): return z*(1-z) * t
 
-# the function E(ln(t/Q**2)) = ln(t/Q**2) - (1/r) ln(R) for the numerical solution for the evolution scale, given random number R
-def EmissionScaleFunc(logt_over_Qsq, Q, Qcut, R, aSover):
-    # calculate t:
-    t = Q**2 * math.exp( logt_over_Qsq )
-    # get r:
-    r = tGamma(zp_over(t, Qcut), aSover) - tGamma(zm_over(t, Qcut), aSover)
-    # calculate E(ln(t/Q**2)), the equation to solve
-    return logt_over_Qsq - (1./r) * math.log(R)
-
-# a function that calculates (numerically) the emission scale given the initial scale Q, cutoff Qc and random number R
+# a function that calculates the emission scale given the initial scale Q, cutoff Qc and random number R
 def Get_tEmission_direct(Q, Qcut, R, aSover):
     upper = tGamma(zp_over(Q**2, Qcut), aSover)
     lower = tGamma(zm_over(Q**2, Qcut), aSover)
