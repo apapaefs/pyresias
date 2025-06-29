@@ -56,8 +56,8 @@ outputfile = ''
 # how many events to shower
 Nshower = 1E99
 
-# the cutoff scale in GeV, 0.935 GeV matches Herwig 7 
-Qc = 0.935
+# the cutoff scale in GeV 
+Qc = 1.0
 
 ##########################
 # COMMAND LINE ARGUMENTS #
@@ -183,33 +183,55 @@ def Generate_Emission(Q, Qcut, aSover):
         zEm = 1.
         pTsqEm = 0.
         MsqEm = 0.
+        if debug: print('continueEvolution is False')
         return tEm, zEm, pTsqEm, MsqEm, generated, continueEvolution
     if debug: print('\tcandidate emission scale, sqrt(tEm)=', math.sqrt(tEm))
+    if tEm < 4*Qcut**2:
+        if debug: print('\t\temission REJECTED due to tEm < 4*Qcut**2: tEm, Qcut=', tEm, Qcut)
+        generated = False
+    # calculate actual limits on z+, z- and check if they are consistent:
+    zp = zp_over(tEm, Qcut)
+    zm = zm_over(tEm, Qcut)
+    if zm < 0 or zp < 0:
+        if debug: print('\t\temission REJECTED due to zm < 0 or zp < 0: zm,zp=', zm, zp)
+        generated = False
+    if zm > zp:
+        if debug: print('\t\temission REJECTED due to zm > zp: zm=', zm, 'zp=', zp)
+        generated = False
     # get the (candidate) z of the emission
     zEm = Get_zEmission(tEm, Qcut, R2, aSover)
-    if debug: print('\tcandidate momentum fraction, zEm=', zEm)
+    if debug: print('\t\tcandidate momentum fraction, zEm=', zEm)
+    # check that zEm is within allowed limits:
+    if zEm < zm or zEm > zp:
+        if debug: print('\t\temission REJECTED due to zEm < zm or zEm > zp: zEm=', zEm, 'zm=', zm, 'zp=', zp)
+        generated = False
+    if zEm < zm or zEm > zp:
+        if debug: print('\t\temission REJECTED due to zEm < zm or zEm > zp: zEm=', zEm, 'zm=', zm, 'zp=', zp)
+        generated = False
     # get the transverse momentum 
     pTsqEm = Get_pTsq(tEm, zEm)
-    if debug: print('\tcandidate transverse momentum squared =', pTsqEm)
+    if debug: print('\t\tcandidate transverse momentum =', np.sqrt(pTsqEm))
     # now check the conditions to accept or reject the emission:
     # check if the transverse momentum is physical:
     if pTsqEm < 0.:
-        if debug: print('\t\temission rejected due to negative pT**2=', pTsqEm)
+        if debug: print('\t\temission REJECTED due to negative pT**2=', pTsqEm)
         generated = False
     # compare the splitting function overestimate prob to a random number
     if Pqq(zEm)/Pqq_over(zEm) < R3:
-        if debug: print('\t\temission rejected due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
+        if debug: print('\t\temission REJECTED due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
         generated = False
     else:
         if debug: print('\t\temission NOT rejected due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
     # compare the alphaS overestimate prob to a random number
     if alphaS(tEm, zEm, Qcut, aSover)/aSover < R4:
-        if debug: print('\t\temission rejected due to alphaS overestimate, p=', alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission REJECTED due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
         generated = False
     else:
-        if debug: print('\t\temission NOT rejected due to alphaS overestimate, p=', alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission NOT rejected due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
     # get the virtual mass squared:
     MsqEm = Get_mvirtsq(tEm, zEm)
+    if debug and generated == True:
+        print('\t\t---> Emission accepted!')
     if generated == False: # rejected emission
         zEm = 1.
         pTsqEm = 0.
