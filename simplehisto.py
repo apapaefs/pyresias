@@ -10,11 +10,7 @@ def simplehisto(message, plot_type, outputdirectory, array_to_hist, xlab, ylab, 
     ############
     print('---')
     print(message)
-    # plot settings ########
-    # plot:
-    # plot settings
-    ylog = False
-    xlog = False
+    # plot settings #######
 
     # construct the axes for the plot
     gs = gridspec.GridSpec(4, 4)
@@ -37,9 +33,7 @@ def simplehisto(message, plot_type, outputdirectory, array_to_hist, xlab, ylab, 
     # set the ticks, labels and limits etc.
     ax.set_ylabel(ylab, fontsize=20)
     ax.set_xlabel(xlab, fontsize=20)
-
    
-    
     # choose x and y log scales
     if ylog:
         ax.set_yscale('log')
@@ -50,6 +44,7 @@ def simplehisto(message, plot_type, outputdirectory, array_to_hist, xlab, ylab, 
     else:
         ax.set_xscale('linear')
 
+        
     ax.xaxis.set_major_locator(ticker.AutoLocator())
     ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
     ax.yaxis.set_major_locator(ticker.AutoLocator())

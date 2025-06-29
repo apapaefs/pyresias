@@ -153,32 +153,23 @@ def Get_pTsq(t, z): return z**2 * (1-z)**2 * t
 # calculate the virtual mass-squared of the emitting particle
 def Get_mvirtsq(t,z): return z*(1-z) * t
 
-# the function E(ln(t/Q**2)) = ln(t/Q**2) - (1/r) ln(R) for the numerical solution for the evolution scale, given random number R
-def EmissionScaleFunc(logt_over_Qsq, Q, Qcut, R, aSover):
-    # calculate t:
-    t = Q**2 * math.exp( logt_over_Qsq )
-    # get r:
-    r = tGamma(zp_over(t, Qcut), aSover) - tGamma(zm_over(t, Qcut), aSover)
-    # calculate E(ln(t/Q**2)), the equation to solve
-    return logt_over_Qsq - (1./r) * math.log(R)
-
-# a function that calculates (numerically) the emission scale given the initial scale Q, cutoff Qc and random number R
-def Get_tEmission(Q, Qcut, R, tfac, aSover):
-    tolerance = 1E-4 # the tolerance for the solution
-    popt = [Q, Qcut, R, aSover] # options to pass to the function for the solver
-    EmissionFunc_arg = lambda tEm : EmissionScaleFunc(tEm, *popt) # the function in a form appropriate for the solver
-    # calculate the solution using "Ridder's" method
-    sol, results = scipy.optimize.ridder(EmissionFunc_arg, math.log(tfac*Qcut**2/Q**2), 0., xtol=tolerance, full_output=True, maxiter=10000)
-    # get the actual evolution variable from the solution
-    tEm_sol = Q**2 * math.exp( sol )
-    # if a solution has not been found, terminate the evolution        
-    if abs(EmissionFunc_arg(sol)) > tolerance:
-            return Q**2, [], False
-    # otherwise return the emission scale and continue
-    return tEm_sol, results, True
+# a function that calculates the emission scale given the initial scale Q, cutoff Qc and random number R
+def Get_tEmission_direct(Q, Qcut, R, aSover):
+    upper = tGamma(zp_over(Q**2, Qcut), aSover)
+    lower = tGamma(zm_over(Q**2, Qcut), aSover)
+    if lower > upper:
+        if debug: print('\tEmission fails due upper < lower')
+        return Q**2, [], False
+    c = 1/(upper - lower)
+    # get the actual evolution variable
+    tEm_sol = Q**2 * R**c
+    if math.isnan(tEm_sol) or tEm_sol < 4*Qcut**2:
+        if debug: print('\tEmission fails due to NaN tEm or tEm_sol < 4*Qcut**2, tEm_sol=', tEm_sol)
+        return Q**2, [], False
+    return tEm_sol, [], True
 
 # function that generates emissions:
-def Generate_Emission(Q, Qcut, tfac, aSover):
+def Generate_Emission(Q, Qcut, aSover):
     generated = True
     # generate random numbers
     R1 = random()
@@ -186,7 +177,7 @@ def Generate_Emission(Q, Qcut, tfac, aSover):
     R3 = random()
     R4 = random()
     # solve for the (candidate) emission scale:
-    tEm, results, continueEvolution = Get_tEmission(Q, Qcut, R1, tfac, aSover)
+    tEm, results, continueEvolution = Get_tEmission_direct(Q, Qcut, R1, aSover)
     # if no solution is found then end branch
     if continueEvolution == False:
         zEm = 1.
@@ -237,7 +228,6 @@ def EvolveParticle(p, Qmin, aSover):
     Emissions = []
     # array to store momenta of outgoing particles:
     Momenta = []
-    fac_tEm = 3.999 # minimum value for the cutoff to try emissions = fac_tEm * Qcut**2 (should be less than the actual cutoff)
     fac_cutoff = 4. # actual cutoff = fac_cutoff * Qc**2
     # star the evolution
     tEm = p[5]**2 # initial value of the evolution variable = the energy of the particle
@@ -248,7 +238,7 @@ def EvolveParticle(p, Qmin, aSover):
     # continue the evolution while we are above the cutoff:
     while np.sqrt(tEm)*zEm > np.sqrt(fac_cutoff*tEm_min):
         # evolve:
-        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, math.sqrt(tEm_min), fac_tEm, aSover)
+        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, math.sqrt(tEm_min), aSover)
         # if the solver could not find a solution, end the evolution
         if continueEvolution == False:
             if debug:
@@ -534,10 +524,10 @@ for i, particles in enumerate(tqdm(events)):
     if i > Nshower: break
 
 # construct the HEPMC writer (Ascii)
-print('Writing output to HepMC file:', outputfile)
-hepmcwriter = pyhepmc.io.WriterAscii(outputfile)
+#print('Writing output to HepMC file:', outputfile)
+#hepmcwriter = pyhepmc.io.WriterAscii(outputfile)
 # write hepmc file
-WriteHepMC(hepmcwriter, showeredEvents)
+#WriteHepMC(hepmcwriter, showeredEvents)
 
 # construct the LHE writer:
 sigma = 1.2
