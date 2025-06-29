@@ -4,14 +4,12 @@ import math # python math
 import numpy as np # numerical python
 import scipy # scientific python
 from scipy import optimize # for numerical solution of equations
-from matplotlib import pyplot as plt # plotting
-import matplotlib.gridspec as gridspec # more plotting 
 from prettytable import PrettyTable # pretty printing of tables
 from tqdm import tqdm # display progress
 from optparse import OptionParser # command line parameters
 from scipy.integrate import quad # for numerical integrals
-from matplotlib.ticker import MultipleLocator
 from scipy import interpolate
+from simplehisto import *
 from alphaS import *
 
 ################################################
@@ -307,123 +305,29 @@ if os.path.exists(outputdirectory) == False:
     mkdircommand = 'mkdir ' + outputdirectory
     p = subprocess.Popen(mkdircommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd='.')
     
-# number of bins for histos
-nbins=50
-
 ############
-print('---')
-print('plotting evolution variable emission scales')
-# plot settings ########
-plot_type = 'evolutionvar'
-# plot:
-# plot settings
-ylab = r'$P(\sqrt{\tilde{t}})$'
-xlab = r'$\sqrt{\tilde{t}}$ [GeV]'
-ylog = False
-xlog = False
 
-# construct the axes for the plot
-gs = gridspec.GridSpec(4, 4)
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.grid(False)
 
-tarray = []
-for i in range(len(AllEmissions)):
-    tarray.append(AllEmissions[i][0])
+# rotate emission array:
+AllEmissionsPlot = np.array(AllEmissions).T
 
-# get the histogram bins:
-bins, edges = np.histogram(tarray, bins=nbins)
-left,right = edges[:-1],edges[1:]
-X = np.array([left,right]).T.flatten()
-Y = np.array([bins,bins]).T.flatten()
+# evolution variable:
+tarray = AllEmissionsPlot[0]
+simplehisto('plotting evolution variable emission scales', 'evolutionvar', outputdirectory, tarray, r'$P(\sqrt{\tilde{t}})$', r'$\sqrt{\tilde{t}}$ [GeV]')
 
-# normalise:
-Y = Y/np.linalg.norm(Y)
-# plot
-plt.plot(X,Y, label='', color='red', lw=1)
+# transverse momentum:
+ptarray = AllEmissionsPlot[2]
+simplehisto('plotting pT of emissions', 'transversemom', outputdirectory, ptarray, '$P(p_T)$', '$p_T$ [GeV]')
 
-# set the ticks, labels and limits etc.
-ax.set_ylabel(ylab, fontsize=20)
-ax.set_xlabel(xlab, fontsize=20)
-# choose x and y log scales
-if ylog:
-    ax.set_yscale('log')
-else:
-    ax.set_yscale('linear')
-if xlog:
-    ax.set_xscale('log')
-else:
-    ax.set_xscale('linear')
+# virtual mass:
+marray = AllEmissionsPlot[3]
+simplehisto('plotting virtual mass of emissions', 'virtmass', outputdirectory, marray, '$P(m_\\mathrm{virt}(a\\rightarrow bc))$', '$m_\\mathrm{virt}(a\\rightarrow bc)$ [GeV]')
 
-# save the figure
-print('saving the figure')
-# save the figure in PDF format
-infile = plot_type + '.dat'
-print('---')
-print('output in', outputdirectory + infile.replace('.dat','.pdf'))
-plt.savefig(outputdirectory + infile.replace('.dat','.pdf'), bbox_inches='tight')
-plt.close(fig)
-
-###############
-print('---')
-print('plotting pT of emissions')
-# plot settings ########
-plot_type = 'transversemom'
-# plot:
-# plot settings
-ylab = '$P(p_T)$'
-xlab = '$p_T$ [GeV]'
-ylog = False
-xlog = False
-
-# construct the axes for the plot
-gs = gridspec.GridSpec(4, 4)
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.grid(False)
-
-tarray = []
-for i in range(len(AllEmissions)):
-    tarray.append(AllEmissions[i][2])
-
-# get the histogram bins:
-bins, edges = np.histogram(tarray, bins=nbins)
-left,right = edges[:-1],edges[1:]
-X = np.array([left,right]).T.flatten()
-Y = np.array([bins,bins]).T.flatten()
-
-# normalise:
-Y = Y/np.linalg.norm(Y)
-# plot
-plt.plot(X,Y, label='', color='red', lw=1)
-
-# set the ticks, labels and limits etc.
-ax.set_ylabel(ylab, fontsize=20)
-ax.set_xlabel(xlab, fontsize=20)
-
-# choose x and y log scales
-if ylog:
-    ax.set_yscale('log')
-else:
-    ax.set_yscale('linear')
-if xlog:
-    ax.set_xscale('log')
-else:
-    ax.set_xscale('linear')
-
-# save the figure
-print('saving the figure')
-# save the figure in PDF format
-infile = plot_type + '.dat'
-print('---')
-print('output in', outputdirectory + infile.replace('.dat','.pdf'))
-plt.savefig(outputdirectory + infile.replace('.dat','.pdf'), bbox_inches='tight')
-plt.close(fig)
 
 ###########################
+# Custom z plot
 ###########################
-###########################
+nbins=50
 print('---')
 print('plotting z of emissions')
 # plot settings ########
@@ -527,63 +431,5 @@ print('---')
 print('output in', outputdirectory + infile.replace('.dat','.pdf'))
 plt.savefig(outputdirectory + infile.replace('.dat','.pdf'), bbox_inches='tight')
 plt.close(fig)
-
-###########################
-print('---')
-print('plotting virtual mass of emissions')
-# plot settings ########
-plot_type = 'virtmass'
-# plot:
-# plot settings
-ylab = '$P(m_\\mathrm{virt}(a\\rightarrow bc))$'
-xlab = '$m_\\mathrm{virt}(a\\rightarrow bc)$'
-ylog = False
-xlog = False
-
-# construct the axes for the plot
-gs = gridspec.GridSpec(4, 4)
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.grid(False)
-
-tarray = []
-for i in range(len(AllEmissions)):
-    tarray.append(np.array(AllEmissions[i][3]))
-
-# get the histogram bins:
-bins, edges = np.histogram(tarray, bins=nbins)
-left,right = edges[:-1],edges[1:]
-X = np.array([left,right]).T.flatten()
-Y = np.array([bins,bins]).T.flatten()
-
-# normalise:
-Y = Y/np.linalg.norm(Y)
-
-# plot
-plt.plot(X,Y, label='', color='red', lw=1)
-
-# set the ticks, labels and limits etc.
-ax.set_ylabel(ylab, fontsize=20)
-ax.set_xlabel(xlab, fontsize=20)
-
-# choose x and y log scales
-if ylog:
-    ax.set_yscale('log')
-else:
-    ax.set_yscale('linear')
-if xlog:
-    ax.set_xscale('log')
-else:
-    ax.set_xscale('linear')
-
-# save the figure
-print('saving the figure')
-# save the figure in PDF format
-infile = plot_type + '.dat'
-print('---')
-print('output in', outputdirectory + infile.replace('.dat','.pdf'))
-plt.savefig(outputdirectory + infile.replace('.dat','.pdf'), bbox_inches='tight')
-plt.close(fig)
-
 
 print('\nDone!')
