@@ -127,7 +127,7 @@ def Pqq_over(z): return 2.*CF/(1.-z)
 
 # the scale choice of alphaS 
 def scale_of_alphaS(t, z):
-    return z * (1-z) * math.sqrt(t)
+    return z * (1-z) * np.sqrt(t)
 
 # return the true alphaS using the PDF alphaS over 2 pi
 def alphaS(t, z, Qcut, aSover):
@@ -136,19 +136,17 @@ def alphaS(t, z, Qcut, aSover):
     if scale < Qcut and CMW == 'None' or CMW == 'Linear':
         scale = Qcut
     if CMW == 'Linear':
-        CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./math.pi
-        return aS.alphasQ(scale)/2./math.pi * CMWFactor
+        CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./np.pi
+        return aS.alphasQ(scale)/2./np.pi * CMWFactor
     elif CMW == 'Factor':
         Nf = 5
         CMWFactor = np.exp(- (67 - 3 * np.pi**2 - 10/3 * Nf)/ (33 - 2*Nf) )
         scale *= CMWFactor
         if scale < Qcut:
             scale = Qcut
-        return aS.alphasQ(scale)/2./math.pi
+        return aS.alphasQ(scale)/2./np.pi
     elif CMW == 'None':
-        return aS.alphasQ(scale)/2./math.pi
-
-    
+        return aS.alphasQ(scale)/2./np.pi
 
 # the analytical integral of t * Gamma over z 
 def tGamma(z, aSover):
@@ -156,11 +154,11 @@ def tGamma(z, aSover):
 
 # the inverse of the function t*Gamma, given the overestimate for alphaS:
 def inversetGamma(r, aSover):
-    return 1. - math.exp(- 0.5*r/CF/aSover)
+    return 1. - np.exp(- 0.5*r/CF/aSover)
 
 # the overestimated upper and lower limit for the z integral:
-def zp_over(t, cut): return 1.-math.sqrt(cut**2/t)
-def zm_over(t, cut): return math.sqrt(cut**2/t)
+def zp_over(t, cut): return 1.-np.sqrt(cut**2/t)
+def zm_over(t, cut): return np.sqrt(cut**2/t)
 
 # set the overestimate of alphaS once and for all
 def get_alphaS_over(Qcut):
@@ -170,15 +168,15 @@ def get_alphaS_over(Qcut):
     else:
         scale = Qcut
     if CMW == 'Linear':
-        CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./math.pi
-        alphaS_over = aS.alphasQ(scale)/2./math.pi * CMWFactor
+        CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./np.pi
+        alphaS_over = aS.alphasQ(scale)/2./np.pi * CMWFactor
     elif CMW == 'Factor':
         Nf = 5
         CMWFactor = np.exp(- (67 - 3 * np.pi**2 - 10/3 * Nf)/ (33 - 2*Nf) )
         scale *= CMWFactor
-        alphaS_over = aS.alphasQ(scale)/2./math.pi
+        alphaS_over = aS.alphasQ(scale)/2./np.pi
     elif CMW == 'None':
-        alphaS_over = aS.alphasQ(scale)/2./math.pi
+        alphaS_over = aS.alphasQ(scale)/2./np.pi
     if debug: print('alpha_S overestimate set to', alphaS_over, 'for scale=', scale, 'GeV')
     return alphaS_over
 
@@ -223,28 +221,25 @@ def Generate_Emission(Q, Qcut, aSover):
         MsqEm = 0.
         if debug: print('continueEvolution is False')
         return tEm, zEm, pTsqEm, MsqEm, generated, continueEvolution
-    if debug: print('\tcandidate emission scale, sqrt(tEm)=', math.sqrt(tEm))
+    if debug: print('\tcandidate emission scale, sqrt(tEm)=', np.sqrt(tEm))
     if tEm < 4*Qcut**2:
         if debug: print('\t\temission REJECTED due to tEm < 4*Qcut**2: tEm, Qcut=', tEm, Qcut)
         generated = False
     # calculate actual limits on z+, z- and check if they are consistent:
-    zp = zp_over(tEm, Qcut)
-    zm = zm_over(tEm, Qcut)
-    if zm < 0 or zp < 0:
-        if debug: print('\t\temission REJECTED due to zm < 0 or zp < 0: zm,zp=', zm, zp)
+    zp_true = zp_over(tEm, Qcut)
+    zm_true = zm_over(tEm, Qcut)
+    if zm_true < 0 or zp_true < 0:
+        if debug: print('\t\temission REJECTED due to zm_true < 0 or zp_true < 0: zm_true, zp_true=', zm_true, zp_true)
         generated = False
-    if zm > zp:
-        if debug: print('\t\temission REJECTED due to zm > zp: zm=', zm, 'zp=', zp)
+    if zm_true > zp_true:
+        if debug: print('\t\temission REJECTED due to zm_true > zp_true: zm_true=', zm_true, 'zp_true=', zp_true)
         generated = False
     # get the (candidate) z of the emission
-    zEm = Get_zEmission(tEm, Qcut, R2, aSover)
+    zEm = Get_zEmission(Q**2, Qcut, R2, aSover)
     if debug: print('\t\tcandidate momentum fraction, zEm=', zEm)
-    # check that zEm is within allowed limits:
-    if zEm < zm or zEm > zp:
-        if debug: print('\t\temission REJECTED due to zEm < zm or zEm > zp: zEm=', zEm, 'zm=', zm, 'zp=', zp)
-        generated = False
-    if zEm < zm or zEm > zp:
-        if debug: print('\t\temission REJECTED due to zEm < zm or zEm > zp: zEm=', zEm, 'zm=', zm, 'zp=', zp)
+    # check that zEm is within allowed kinematic limits:
+    if zEm < zm_true or zEm > zp_true:
+        if debug: print('\t\temission REJECTED due to zEm < zm_true or zEm > zp_true: zEm=', zEm, 'zm_true', zm_true, 'zp=', zp_true)
         generated = False
     # get the transverse momentum 
     pTsqEm = Get_pTsq(tEm, zEm)
@@ -278,6 +273,7 @@ def Generate_Emission(Q, Qcut, aSover):
         zEm = 1.
         pTsqEm = 0.
         MsqEm = 0.
+        # NOTE: tEm continues from the rejected emission scale!
     # return all the variables for the emission
     return tEm, zEm, pTsqEm, MsqEm, generated, continueEvolution
 
@@ -295,12 +291,12 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
     fac_cutoff = 4. # actual cutoff = fac_cutoff * Qc**2
     # star the evolution
     tEm = Q2start # initial value of the evolution variable = COM energy in this case
-    zEm = 1 # initial value of the momentum fraction
+    zEm = 1.0 # initial value of the momentum fraction
     if debug: print('generating evolution for starting scale sqrt(t)=', np.sqrt(Q2start), 'GeV\n')
     # continue the evolution while we are above the cutoff:
     while np.sqrt(tEm)*zEm > np.sqrt(fac_cutoff*tEm_min):
         # evolve:
-        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, math.sqrt(tEm_min), aSover)
+        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, np.sqrt(tEm_min), aSover)
         # if the solver could not find a solution, end the evolution
         if continueEvolution == False:
             if debug:
@@ -315,7 +311,7 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
         # if we have already passed the cutoff this emission does not count
         # this will also terminate the evolution
         if tEm < fac_cutoff*tEm_min: 
-            if debug: print('\t\tXX->emission rejected at sqrt(t)=', math.sqrt(tEm), 'since it is below cutoff')
+            if debug: print('\t\tXX->emission rejected at sqrt(t)=', np.sqrt(tEm), 'since it is below cutoff')
             zEm = 1.
             pTsqEm = 0.
             QsqEm = 0.
@@ -323,16 +319,10 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
             return Emissions
         # if the emission was successful, append to the Emissions and Momenta lists and continue
         if zEm != 1.0:
-            pT = math.sqrt(pTsqEm)
+            pT = np.sqrt(pTsqEm)
             # random phi angle
             phi = (2*random() - 1)*np.pi
             Emissions.append([tEm, zEm, pT, MsqEm, phi])
-            # generate the momenta of the outgoing gluons with respect to the quark direction
-            #Ei = np.sqrt( (1-zEm)**2 * pmag**2 + pT**2 )
-            #Momenta.append([21, 1, pT*np.cos(phi), pT*np.sin(phi), (1-zEm)*pmag, Ei, 0])
-            # rescale the magnitude of the parent particle by z
-            #pmag = zEm * pmag
-            #if debug: print('\t->successful emission at sqrt(t)=', math.sqrt(tEm), 'z=', zEm, 'pT=', math.sqrt(pTsqEm), 'mVirt=', math.sqrt(MsqEm))
             Nem = Nem + 1
     if debug:
         print('no further emissions, evolution ended')

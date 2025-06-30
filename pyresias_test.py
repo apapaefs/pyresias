@@ -41,9 +41,22 @@ outputdirectory = 'plots/'
 # the number of branches to evolve:
 Nevolve = 100000
 # the cutoff scale, e.g. 1 GeV. 
-Qc = 1.
+Qc = 1E-2
 # the hard scale, e.g. 1000 GeV
 Q = 1000.
+
+# whether to impose kinematic limits on the generation of z if the Overstimate method is used for tMethod:
+# this should be set to "False" if you are comparing with the splitting function
+# to check if you are generating the correct distribution! 
+# for a kinematically correct distributions, set to True!
+Impose_zLimits = False
+
+# Choose between solving for the evolution variable numerically ('Numerical') or through the overestimate ('Overestimated')
+tMethod = 'Numerical' # 'Overestimated' or 'Numerical'
+
+# maximum number of attempts (for the 'Numerical' option for tMethod)
+ntry_max = 100
+ntry = 0
 
 ##########################
 # COMMAND LINE ARGUMENTS #
@@ -103,7 +116,7 @@ def Pqq_over(z): return 2.*CF/(1.-z)
 # the scale choice of alphaS 
 def scale_of_alphaS(t, z):
     if scaleoption == "pt":
-        return z * (1-z) * math.sqrt(t)
+        return z * (1-z) * np.sqrt(t)
     elif scaleoption == "fixed":
         return fixedScale
 
@@ -111,8 +124,8 @@ def scale_of_alphaS(t, z):
 def alphaS(t, z, Qcut, aSover):
     scale = scale_of_alphaS(t, z)
     if scale < Qcut:
-        return aS.alphasQ(Qcut)/2./math.pi
-    return aS.alphasQ(scale)/2./math.pi
+        return aS.alphasQ(Qcut)/2./np.pi
+    return aS.alphasQ(scale)/2./np.pi
 
 # the analytical integral of t * Gamma over z 
 def tGamma(z, aSover):
@@ -120,11 +133,11 @@ def tGamma(z, aSover):
 
 # the inverse of the function t*Gamma, given the overestimate for alphaS:
 def inversetGamma(r, aSover):
-    return 1. - math.exp(- 0.5*r/CF/aSover)
+    return 1. - np.exp(- 0.5*r/CF/aSover)
 
 # the overestimated upper and lower limit for the z integral:
-def zp_over(t, Qcut): return 1.-math.sqrt(Qcut**2/t)
-def zm_over(t, Qcut): return math.sqrt(Qcut**2/t)
+def zp_over(t, Qcut): return 1.-np.sqrt(Qcut**2/t)
+def zm_over(t, Qcut): return np.sqrt(Qcut**2/t)
 
 # set the overestimate of alphaS once and for all
 def get_alphaS_over(Q, Qcut):
@@ -132,7 +145,7 @@ def get_alphaS_over(Q, Qcut):
         scale = Qcut
     elif scaleoption == "fixed":
         scale = fixedScale
-    alphaS_over = aS.alphasQ(scale)/2./math.pi
+    alphaS_over = aS.alphasQ(scale)/2./np.pi
     if debug: print('alpha_S overestimate set to', alphaS_over, 'for scale=', scale, 'GeV')
     return alphaS_over
 
@@ -148,29 +161,55 @@ def Get_mvirtsq(t,z): return z*(1-z) * t
 # the function E(ln(t/Q**2)) = ln(t/Q**2) - (1/r) ln(R) for the numerical solution for the evolution scale, given random number R
 def EmissionScaleFunc(logt_over_Qsq, Q, Qcut, R, aSover):
     # calculate t:
-    t = Q**2 * math.exp( logt_over_Qsq )
+    t = Q**2 * np.exp( logt_over_Qsq )
     # get r:
     r = tGamma(zp_over(t, Qcut), aSover) - tGamma(zm_over(t, Qcut), aSover)
     # calculate E(ln(t/Q**2)), the equation to solve
-    return logt_over_Qsq - (1./r) * math.log(R)
+    return logt_over_Qsq - (1./r) * np.log(R)
 
 # a function that calculates (numerically) the emission scale given the initial scale Q, cutoff Qc and random number R
-def Get_tEmission(Q, Qcut, R, tfac, aSover):
+def Get_tEmission(Q, Qcut, R, aSover):
+    global ntry
+    tfac = 4-1E-10
     tolerance = 1E-3 # the tolerance for the solution
     popt = [Q, Qcut, R, aSover] # options to pass to the function for the solver
-    EmissionFunc_arg = lambda tEm : EmissionScaleFunc(tEm, *popt) # the function in a form appropriate for the solver
+    EmissionFunc_arg = lambda x : EmissionScaleFunc(x, *popt) # the function in a form appropriate for the solver
     # calculate the solution using "Ridder's" method
-    sol, results = scipy.optimize.ridder(EmissionFunc_arg, math.log(tfac*Qcut**2/Q**2), 0., xtol=tolerance, full_output=True, maxiter=1000)
+    sol, results = scipy.optimize.ridder(EmissionFunc_arg, np.log(tfac*Qcut**2/Q**2), 0., xtol=tolerance, full_output=True, maxiter=1000)
     # get the actual evolution variable from the solution
-    tEm_sol = Q**2 * math.exp( sol )
-    # if a solution has not been found, terminate the evolution        
+    tEm_sol = Q**2 * np.exp( sol )
+    if math.isnan(tEm_sol) or tEm_sol < 4*Qcut**2:
+        if debug: print('\tEmission fails due to NaN tEm or tEm_sol < 4*Qcut**2, tEm_sol=', tEm_sol, 'R1=', R)
+        return Q**2, [], False, False
+    # if a solution has not been found, terminate the evolution
+    if debug: print('\t\tabs(EmissionFunc_arg(sol))=', abs(EmissionFunc_arg(sol)), 'ntry=', ntry)
+    if ntry > ntry_max:
+        ntry = 0
+        return Q**2, [], False, False
     if abs(EmissionFunc_arg(sol)) > tolerance:
-            return Q**2, [], False
+        ntry += 1
+        return Q**2, [], True, False
     # otherwise return the emission scale and continue
-    return tEm_sol, results, True
+    return tEm_sol, results, True, True
+
+# a function that calculates the emission scale given the initial scale Q, cutoff Qc and random number R
+def Get_tEmission_direct(Q, Qcut, R, aSover):
+    generated = True
+    upper = tGamma(zp_over(Q**2, Qcut), aSover)
+    lower = tGamma(zm_over(Q**2, Qcut), aSover)
+    if lower > upper:
+        if debug: print('\tEmission fails due upper < lower')
+        return Q**2, [], False
+    c = 1/(upper - lower)
+    # get the actual evolution variable
+    tEm = Q**2 * R**c
+    if math.isnan(tEm) or tEm < 4*Qcut**2:
+        if debug: print('\tEmission fails due to NaN tEm or tEm_sol < 4*Qcut**2, tEm_sol=', tEm, 'R1=', R)
+        return Q**2, [], False, False
+    return tEm, [], True, True
 
 # function that generates emissions:
-def Generate_Emission(Q, Qcut, tfac, aSover):
+def Generate_Emission(Q, Qcut, aSover):
     generated = True
     # generate random numbers
     R1 = random()
@@ -178,43 +217,71 @@ def Generate_Emission(Q, Qcut, tfac, aSover):
     R3 = random()
     R4 = random()
     # solve for the (candidate) emission scale:
-    tEm, results, continueEvolution = Get_tEmission(Q, Qcut, R1, tfac, aSover)
+    if tMethod == 'Overestimated':
+        tEm, results, continueEvolution, generated = Get_tEmission_direct(Q, Qcut, R1, aSover)
+    elif tMethod == 'Numerical':
+        tEm, results, continueEvolution, generated = Get_tEmission(Q, Qcut, R1, aSover)
     # if no solution is found then end branch
     if continueEvolution == False:
         zEm = 1.
         pTsqEm = 0.
         MsqEm = 0.
+        if debug: print('continueEvolution is False')
         return tEm, zEm, pTsqEm, MsqEm, generated, continueEvolution
-    if debug: print('\tcandidate emission scale, sqrt(tEm)=', math.sqrt(tEm))
+    if debug: print('\tcandidate emission scale, sqrt(tEm)=', np.sqrt(tEm))
+    if tEm < 4*Qcut**2:
+        if debug: print('\t\temission REJECTED due to tEm < 4*Qcut**2: tEm, Qcut=', tEm, Qcut)
+        generated = False
+    # calculate actual limits on z+, z- and check if they are consistent:
+    zp_true = zp_over(tEm, Qcut)
+    zm_true = zm_over(tEm, Qcut)
+    if zm_true < 0 or zp_true < 0:
+        if debug: print('\t\temission REJECTED due to zm_true < 0 or zp_true < 0: zm_true, zp_true=', zm_true, zp_true)
+        generated = False
+    if zm_true > zp_true:
+        if debug: print('\t\temission REJECTED due to zm_true > zp_true: zm_true=', zm_true, 'zp_true=', zp_true)
+        generated = False
     # get the (candidate) z of the emission
-    zEm = Get_zEmission(tEm, Qcut, R2, aSover)
-    if debug: print('\tcandidate momentum fraction, zEm=', zEm)
+    if tMethod == 'Numerical':
+        zEm = Get_zEmission(tEm**2, Qcut, R2, aSover)
+    elif tMethod == 'Overestimated':
+        zEm = Get_zEmission(Q**2, Qcut, R2, aSover)
+    if debug: print('\t\tcandidate momentum fraction, zEm=', zEm)
+    # check that zEm is within allowed limits:
+    # this needs to be DISABLED for comparison with the full splitting function!
+    if tMethod == 'Overestimated' and Impose_zLimits is True:
+        if zEm < zm_true or zEm > zp_true:
+            if debug: print('\t\temission REJECTED due to zEm < zm_true or zEm > zp_true: zEm=', zEm, 'zm_true', zm_true, 'zp=', zp_true)
+            generated = False
     # get the transverse momentum 
     pTsqEm = Get_pTsq(tEm, zEm)
-    if debug: print('\tcandidate transverse momentum squared =', pTsqEm)
+    if debug: print('\t\tcandidate transverse momentum =', np.sqrt(pTsqEm))
     # now check the conditions to accept or reject the emission:
     # check if the transverse momentum is physical:
     if pTsqEm < 0.:
-        if debug: print('\t\temission rejected due to negative pT**2=', pTsqEm)
+        if debug: print('\t\temission REJECTED due to negative pT**2=', pTsqEm)
         generated = False
     # compare the splitting function overestimate prob to a random number
     if Pqq(zEm)/Pqq_over(zEm) < R3:
-        if debug: print('\t\temission rejected due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
+        if debug: print('\t\temission REJECTED due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
         generated = False
     else:
         if debug: print('\t\temission NOT rejected due to splitting function overestimate, p=', Pqq(zEm)/Pqq_over(zEm), 'R=', R3)
     # compare the alphaS overestimate prob to a random number
     if alphaS(tEm, zEm, Qcut, aSover)/aSover < R4:
-        if debug: print('\t\temission rejected due to alphaS overestimate, p=', alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission REJECTED due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
         generated = False
     else:
-        if debug: print('\t\temission NOT rejected due to alphaS overestimate, p=', alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission NOT rejected due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
     # get the virtual mass squared:
     MsqEm = Get_mvirtsq(tEm, zEm)
+    if debug and generated == True:
+        print('\t\t---> Emission accepted!')
     if generated == False: # rejected emission
         zEm = 1.
         pTsqEm = 0.
         MsqEm = 0.
+        # NOTE: tEm continues from the rejected emission scale!
     # return all the variables for the emission
     return tEm, zEm, pTsqEm, MsqEm, generated, continueEvolution
 
@@ -227,7 +294,6 @@ def Evolve(Q, Qmin, aSover):
     Nem = 0
     # array to store emission info:
     Emissions = []
-    fac_tEm = 3.999 # minimum value for the cutoff to try emissions = fac_tEm * Qc**2 (should be less than the actual cutoff)
     fac_cutoff = 4. # actual cutoff = fac_cutoff * Qc**2
     # star the evolution
     tEm = Q**2 # initial value of the evolution variable
@@ -236,7 +302,7 @@ def Evolve(Q, Qmin, aSover):
     # continue the evolution while we are above the cutoff:
     while np.sqrt(tEm)*zEm > np.sqrt(fac_cutoff*tEm_min):
         # evolve:
-        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, np.sqrt(tEm_min), fac_tEm, aSover)
+        tEm, zEm, pTsqEm, MsqEm, generatedEmission, continueEvolution = Generate_Emission(np.sqrt(tEm)*zEm, np.sqrt(tEm_min), aSover)
         # if the solver could not find a solution, end the evolution
         if continueEvolution == False:
             if debug:
@@ -250,16 +316,13 @@ def Evolve(Q, Qmin, aSover):
         # if we have already passed the cutoff this emission does not count
         # this will also terminate the evolution
         if tEm < fac_cutoff*tEm_min: 
-            if debug: print('\t\tXX->emission rejected at sqrt(t)=', math.sqrt(tEm), 'since it is below cutoff')
-            zEm = 1.
-            pTsqEm = 0.
-            QsqEm = 0.
+            if debug: print('\t\tXX->emission rejected at sqrt(t)=', np.sqrt(tEm), 'since it is below cutoff')
             if debug: print('total number of emissions=', Nem)
             return Emissions
         # if the emission was successful, append to the Emissions list and continue
-        if zEm != 1.0:
-            Emissions.append([math.sqrt(tEm), zEm, math.sqrt(pTsqEm), math.sqrt(MsqEm)])
-            if debug: print('\t->successful emission at sqrt(t)=', math.sqrt(tEm), 'z=', zEm, 'pT=', math.sqrt(pTsqEm), 'mVirt=', math.sqrt(MsqEm))
+        if zEm != 1:
+            Emissions.append([np.sqrt(tEm), zEm, np.sqrt(pTsqEm), np.sqrt(MsqEm)])
+            if debug: print('\t->successful emission at sqrt(t)=', np.sqrt(tEm), 'z=', zEm, 'pT=', np.sqrt(pTsqEm), 'mVirt=', np.sqrt(MsqEm))
             Nem = Nem + 1
     if debug:
         print('no further emissions, evolution ended')
@@ -325,11 +388,11 @@ simplehisto('plotting virtual mass of emissions', 'virtmass', outputdirectory, m
 
 
 ###########################
-# Custom z plot
+###########################
 ###########################
 nbins=50
 print('---')
-print('plotting z of emissions')
+print('plotting z of emissions (1-z)*P(z)')
 # plot settings ########
 plot_type = 'momentumfrac'
 # plot:
@@ -431,5 +494,112 @@ print('---')
 print('output in', outputdirectory + infile.replace('.dat','.pdf'))
 plt.savefig(outputdirectory + infile.replace('.dat','.pdf'), bbox_inches='tight')
 plt.close(fig)
+
+###########################
+###########################
+###########################
+nbins=50
+print('---')
+print('plotting z of emissions P(z)')
+# plot settings ########
+plot_type = 'momentumfrac_p'
+# plot:
+# plot settings
+ylab = '$P(z)$'
+xlab = '$z$'
+ylog = True
+xlog = False
+nbins=40
+# construct the axes for the plot
+fig = plt.figure(constrained_layout=True)
+fig.get_layout_engine().set(w_pad=0 / 72, h_pad=0 / 72, hspace=0,
+                            wspace=0)
+gs = gridspec.GridSpec(4, 4,figure=fig,wspace=0, hspace=0)
+ax = fig.add_subplot(gs[:3, :])
+ax2 = fig.add_subplot(gs[3, :])
+gs.update(wspace=0,hspace=0)
+
+ax.grid(False)
+ax2.xaxis.set_minor_locator(MultipleLocator(0.05))
+ax2.yaxis.set_minor_locator(MultipleLocator(0.025))
+
+tarray = []
+for i in range(len(AllEmissions)):
+    tarray.append(np.array(AllEmissions[i][1]))
+gs.update(wspace=0.0, hspace=0.0)
+
+# get the histogram bins:
+bins, edges = np.histogram(tarray, bins=nbins, density=True)
+left,right = edges[:-1],edges[1:]
+X = np.array([0.5*left+0.5*right]).T.flatten()
+Y = np.array([bins]).T.flatten() 
+# normalise:
+xnorm_min=0.0
+xnorm_max=1.0
+
+#Y = Y/np.linalg.norm(Y)/(Y[1]-Y[0])
+#Ysum = Y[(X>xnorm_min) & (X<xnorm_max)].sum()
+gs.update(wspace=0.0, hspace=0.0)
+
+
+# compare to the input splitting function
+# this comparison is only correct if alphaS is fixed
+# this is because the scale of alphaS is also a function of z 
+Yspl = Pqq(X) 
+
+# get the integral numerically, but not in the whole range
+# since the splitting function diverges as z->1 and this cannot be captured numerically:
+zp = X[(X<xnorm_max)][-1]
+zm = X[(X>xnorm_min)][0]
+YsplI = quad(Pqq, 0, 1-1E-10)
+YsplI = np.linalg.norm(Yspl)
+print(np.linalg.norm(Yspl))
+ax.plot(X,Yspl, color='blue', lw=1, label='Splitting function', marker='x', ms=0)
+
+# plot:
+print(np.linalg.norm(Y))
+Y = YsplI * Y / np.linalg.norm(Y)
+print(np.linalg.norm(Y))
+print(YsplI)
+
+ax.plot(X,Y, label='Pyresias', color='red', lw=0, marker='o', ms=2)
+
+
+# ratio:
+ax2.plot(X,Y/Yspl, color='red', lw=0, label='Splitting function', marker='o', ms=2)
+ax2.hlines(y=1, xmin=0, xmax=1, color='black', ls='--')
+
+# set the ticks, labels and limits etc.
+ax.set_ylabel(ylab, fontsize=20)
+ax2.set_xlabel(xlab, fontsize=20)
+ax2.set_ylabel('Pyr./Spl.')
+ax2.set_ylim(0.9,1.1)
+ax2.set_xlim(0.0,1.0)
+ax.set_xlim(0.0,1.0)
+# choose x and y log scales
+if ylog:
+    ax.set_yscale('log')
+else:
+    ax.set_yscale('linear')
+if xlog:
+    ax.set_xscale('log')
+else:
+    ax.set_xscale('linear')
+
+# create legend and plot/font size
+ax.legend()
+ax.legend(loc="upper center", numpoints=1, frameon=False, prop={'size':10})
+ax.set_xticklabels('')
+ax.set_xticks([])
+
+# save the figure
+print('saving the figure')
+# save the figure in PDF format
+infile = plot_type + '.dat'
+print('---')
+print('output in', outputdirectory + infile.replace('.dat','.pdf'))
+plt.savefig(outputdirectory + infile.replace('.dat','.pdf'), bbox_inches='tight')
+plt.close(fig)
+
 
 print('\nDone!')
