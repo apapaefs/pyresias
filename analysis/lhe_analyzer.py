@@ -573,11 +573,13 @@ def analyze(events, weights):
     output_dictionary['sumpvecmag'] = []
     output_dictionary['thrust'] = []
     output_dictionary['yg'] = []
+    output_dictionary['yq'] = []
     output_dictionary['Eq'] = []
     output_dictionary['Eg'] = []
     output_dictionary['pzq'] = []
     output_dictionary['pzg'] = []
     output_dictionary['ng'] = []
+    output_dictionary['nq'] = []
     output_dictionary['minvg'] = []
 
     # fastjet:
@@ -590,7 +592,8 @@ def analyze(events, weights):
         sumpvec = np.array([0.,0.,0.])
         momtocluster = []
         momvec = []
-        ng = 0 # count the number of emitted gluons
+        ng = 0 # count the number of gluons
+        nq = 0 # count the number of quarks/antiquarks
         for p in particles:
             if p[1] == 1:
                 #print('p[2], p[3], p[4]=',p[2], p[3], p[4])
@@ -616,10 +619,14 @@ def analyze(events, weights):
                 pt = math.sqrt(p[2]**2 + p[3]**2)
                 E = p[5]
                 pz = p[4]
+                y = 0.5 * np.log( (p[5] + p[4])/(p[5] - p[4]) )
+                output_dictionary['yq'].append(y)
                 output_dictionary['Eq'].append(E)
                 output_dictionary['pt'].append(pt)
                 output_dictionary['pzq'].append(pz)
+                nq += 1
         output_dictionary['ng'].append(ng)
+        output_dictionary['nq'].append(nq)
         #Thrust = get_thrust(momvec)
         #output_dictionary['thrust'].append(Thrust)
         sumpvecmag = math.sqrt(sumpvec[0]**2 + sumpvec[1]**2 + sumpvec[2]**2)
@@ -675,11 +682,14 @@ if len(sys.argv) == 3:
     histogram_multi_xsec([output['pt'], output2['pt']], [1.0, 1.0], 'pt', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of outgoing quarks [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,120, 5))
     histogram_multi_xsec([output['ptg'], output2['ptg']], [1.0, 1.0], 'ptg', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,110,5),ylogbool=True)
     histogram_multi_xsec([output['yg'], output2['yg']], [1.0, 1.0], 'yg', [r'HERWIG 7', r'Pyresias'], xlabel=r'Rapidity of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} y}$', custom_bins=np.linspace(-3,3,50))
+    histogram_multi_xsec([output['yq'], output2['yq']], [1.0, 1.0], 'yq', [r'HERWIG 7', r'Pyresias'], xlabel=r'Rapidity of quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} y}$', custom_bins=np.linspace(-3,3,50))
     histogram_multi_xsec([output['Eq'], output2['Eq']], [1.0, 1.0], 'Eq', [r'HERWIG 7', r'Pyresias'], xlabel=r'Energy of outgoing quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} E}$', custom_bins=np.arange(0,120,2))
     histogram_multi_xsec([output['pzq'], output2['pzq']], [1.0, 1.0], 'pzq', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_z$ of outgoing quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_z}$', custom_bins=np.arange(0,120,5))
     histogram_multi_xsec([output['pzg'], output2['pzg']], [1.0, 1.0], 'pzg', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_z$ of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_z}$', custom_bins=np.arange(0,120,2))
     histogram_multi_xsec([output['Eg'], output2['Eg']], [1.0, 1.0], 'Eg', [r'HERWIG 7', r'Pyresias'], xlabel=r'Energy of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} E}$', custom_bins=np.arange(0,220,2))
     histogram_multi_xsec([output['ng'], output2['ng']], [1.0, 1.0], 'ng', [r'HERWIG 7', r'Pyresias'], xlabel=r'number of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} n_g}$ ', custom_bins=np.arange(0,15, 1))
+    histogram_multi_xsec([output['nq'], output2['nq']], [1.0, 1.0], 'nq', [r'HERWIG 7', r'Pyresias'], xlabel=r'number of quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} n_q}$ ', custom_bins=np.arange(0,15, 1))
+
     histogram_multi_xsec([output['minvg'], output2['minvg']], [1.0, 1.0], 'minvg', [r'HERWIG 7', r'Pyresias'], xlabel=r'invariant mass SQUARED of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} m_g}$ [GeV$^{-1}$]', custom_bins=np.arange(-20,20,1),ylogbool=True)
 
     histogram_multi_unnorm([output['pt'], output2['pt']], 'pt', [r'HERWIG 7', r'Pyresias'], xlabel=r'$p_T$ of outgoing quarks [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} p_T}$ [GeV$^{-1}$]', custom_bins=np.arange(0,120, 5))
@@ -691,6 +701,8 @@ if len(sys.argv) == 3:
     histogram_multi_unnorm([output['Eg'], output2['Eg']], 'Eg', [r'HERWIG 7', r'Pyresias'], xlabel=r'Energy of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} E}$', custom_bins=np.arange(0,220,2))
     histogram_multi_unnorm([output['ng'], output2['ng']], 'ng', [r'HERWIG 7', r'Pyresias'], xlabel=r'number of emitted gluons', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} n_g}$ ', custom_bins=np.arange(0,15, 1))
     histogram_multi_unnorm([output['minvg'], output2['minvg']], 'minvg', [r'HERWIG 7', r'Pyresias'], xlabel=r'invariant mass SQUARED of emitted gluons [GeV]', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} m_g}$ [GeV$^{-1}$]', custom_bins=np.arange(-20,20,1),ylogbool=True)
+    histogram_multi_unnorm([output['nq'], output2['nq']], 'nq', [r'HERWIG 7', r'Pyresias'], xlabel=r'number of quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} n_q}$ ', custom_bins=np.arange(0,15, 1))
+    histogram_multi_unnorm([output['yq'], output2['yq']], 'yq', [r'HERWIG 7', r'Pyresias'], xlabel=r'Rapidity of quarks', title=r'$e^+ e^- \rightarrow q\bar{q}$', ylabel=r'$\frac{1}{\sigma} \frac{\mathrm{d} \sigma}{\mathrm{d} y}$', custom_bins=np.linspace(-3,3,50))
 
 
 elif len(sys.argv) == 2:
