@@ -109,10 +109,42 @@ statistical uncertainties evaluated over events. You can supply a single file
 to inspect one sample, or add `--jets` to cluster the final-state partons with
 FastJet.
 
+## 4. Let the emitted gluons branch
+
+[pyresias_qtilde_full.py](pyresias_qtilde_full.py) extends the angular-ordered
+example with $g\to gg$ and $g\to q\bar q$. It generates a candidate for each
+allowed channel, selects the one at the highest scale, and evolves both
+daughters. Secondary quarks and gluons can therefore radiate as well.
+
+```bash
+python pyresias_qtilde_full.py data/eejj_ECM206.lhe.gz \
+  -n 1000 --seed 12345 -o output/qtilde-full.lhe
+
+MPLBACKEND=Agg python analysis/lhe_analyzer.py \
+  output/qtilde.lhe output/qtilde-full.lhe \
+  --labels QuarkLines AllChannels -o plots/gluon-branching
+```
+
+Compare the quark and gluon multiplicities with the previous example. By
+default, gluons can produce any of five massless quark flavours. Try
+`--flavours 0` to retain $g\to gg$ while turning off quark-pair production.
+The [full-shower notes](docs/full-shower.md) give the kernels, validation and
+commands for a matching Herwig 7.3.0 comparison.
+
+Read the full script alongside `pyresias_qtilde.py`: it follows the same
+function names and sequence, with comments marking the additions. Use
+`--quark-only` to recover the original quark-line shower and compare the
+two implementations with the same seed.
+
+With the matched settings in the notes, one million events per generator
+at 206 GeV show good statistical agreement with Herwig 7.3.0. The
+[validation results](VALIDATION.md) include the tutorial tests and the
+same-seed check of the quark-only limit.
+
 ## Scope and further details
 
-The examples keep the physics simple: massless light quarks emit gluons through
-$q\to qg$, while the gluons do not branch. The hard events must be
+The first examples follow massless quark lines through $q\to qg$; the final
+extension also showers the emitted gluons and their daughters. The hard events must be
 $e^+e^-\to q\bar q$ in the centre-of-mass frame. Hadronization, spin
 correlations and matrix-element corrections are outside the tutorial.
 

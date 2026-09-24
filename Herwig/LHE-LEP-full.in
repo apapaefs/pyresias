@@ -1,0 +1,98 @@
+# Herwig 7.3.0 comparison with pyresias_qtilde_full.py.
+# Run in a directory containing eejj_ECM206_1E6.lhe.gz; load LHEWriter.so
+# through Herwig's -L option. See docs/full-shower.md for commands.
+read snippets/EECollider.in
+set /Herwig/EventHandlers/Luminosity:Energy 206
+
+# Angular ordering with transverse-momentum-preserving reconstruction.
+cd /Herwig/Shower
+set ShowerHandler:EvolutionScheme pT
+set KinematicsReconstructor:FinalFinalWeight No
+set KinematicsReconstructor:ReconstructionOption General
+set PartnerFinder:PartnerMethod Random
+set PartnerFinder:ScaleChoice Partner
+set ShowerHandler:MaxPtIsMuF No
+set ShowerHandler:RestrictPhasespace No
+set ShowerHandler:DoISR No
+set ShowerHandler:Interactions QCD
+set ShowerHandler:HardEmission None
+set ShowerHandler:SpinCorrelations No
+set ShowerHandler:SoftCorrelations No
+set ShowerHandler:UseConstituentMasses No
+set QtoQGSplitFn:AngularOrdered Yes
+set GtoGGSplitFn:AngularOrdered Yes
+set GtoQQbarSplitFn:AngularOrdered Yes
+set QtoQGSplitFn:StrictAO No
+set GtoGGSplitFn:StrictAO No
+set GtoQQbarSplitFn:StrictAO No
+set QtoQGSplitFn:ScaleChoice pT
+set GtoGGSplitFn:ScaleChoice pT
+set GtoQQbarSplitFn:ScaleChoice pT
+
+# Retain q->qg, g->gg and g->qqbar for d,u,s,c,b. No top pairs.
+do SplittingGenerator:DeleteFinalSplitting g->t,tbar; GtoQQbarSudakovFSR
+
+# These masses set coupling thresholds only; kinematic masses are zero below.
+set AlphaQCDFSR:AlphaIn 0.1074
+set AlphaQCDFSR:InputScale 91.1876
+set AlphaQCDFSR:NumberOfLoops 2
+set AlphaQCDFSR:ScaleFactor 1.0
+set AlphaQCDFSR:NPAlphaS Const
+set AlphaQCDFSR:Qmin 0.935
+insert AlphaQCDFSR:QuarkMasses[0] 0
+insert AlphaQCDFSR:QuarkMasses[1] 0
+insert AlphaQCDFSR:QuarkMasses[2] 0
+insert AlphaQCDFSR:QuarkMasses[3] 1.6
+insert AlphaQCDFSR:QuarkMasses[4] 5.0
+insert AlphaQCDFSR:QuarkMasses[5] 172.69
+set PTCutOff:pTmin 0.900
+
+cd /Herwig/Particles
+do c:UnsetHardProcessMass
+do cbar:UnsetHardProcessMass
+do b:UnsetHardProcessMass
+do bbar:UnsetHardProcessMass
+set d:NominalMass 0*GeV
+set dbar:NominalMass 0*GeV
+set u:NominalMass 0*GeV
+set ubar:NominalMass 0*GeV
+set s:NominalMass 0*GeV
+set sbar:NominalMass 0*GeV
+set c:NominalMass 0*GeV
+set cbar:NominalMass 0*GeV
+set b:NominalMass 0*GeV
+set bbar:NominalMass 0*GeV
+
+library LesHouches.so
+create ThePEG::Cuts /Herwig/Cuts/NoCuts
+cd /Herwig/EventHandlers
+create ThePEG::LesHouchesEventHandler LesHouchesHandler
+set LesHouchesHandler:PartonExtractor /Herwig/Partons/EEExtractor
+set LesHouchesHandler:CascadeHandler /Herwig/Shower/ShowerHandler
+set LesHouchesHandler:HadronizationHandler NULL
+set LesHouchesHandler:DecayHandler NULL
+set LesHouchesHandler:WeightOption VarNegWeight
+create ThePEG::LesHouchesFileReader LesHouchesReader
+set LesHouchesReader:FileName eejj_ECM206_1E6.lhe.gz
+set LesHouchesReader:AllowedToReOpen No
+set LesHouchesReader:InitPDFs 0
+set LesHouchesReader:Cuts /Herwig/Cuts/NoCuts
+insert LesHouchesHandler:LesHouchesReaders 0 LesHouchesReader
+set /Herwig/Generators/EventGenerator:EventHandler LesHouchesHandler
+set /Herwig/Analysis/Basics:CheckQuark false
+
+library LHEWriter.so
+create Herwig::LHEWriter /Herwig/Analysis/LHEWriter
+insert /Herwig/Generators/EventGenerator:AnalysisHandlers 0 /Herwig/Analysis/LHEWriter
+set /Herwig/Generators/EventGenerator:PrintEvent 0
+
+# Record the effective input settings alongside the saved run.
+get /Herwig/Shower/AlphaQCDFSR:AlphaIn
+get /Herwig/Shower/AlphaQCDFSR:QuarkMasses
+get /Herwig/Shower/AlphaQCDFSR:Qmin
+get /Herwig/Shower/PTCutOff:pTmin
+get /Herwig/Shower/GtoGGSplitFn:AngularOrdered
+get /Herwig/Shower/GtoQQbarSplitFn:AngularOrdered
+get /Herwig/Shower/ShowerHandler:EvolutionScheme
+cd /Herwig/Generators
+saverun HW-full-1M EventGenerator
