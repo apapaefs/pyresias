@@ -1,0 +1,25 @@
+{
+  "provenance": {
+    "generator": "Herwig 7.3.0 / ThePEG 2.3.0",
+    "configuration": "ShowerML/HWcomparisons/local-1M/HW-1M.run, AlphaQCDFSR effective persistent values",
+    "run_sha256": "ba7c17d3f6969ce935306fa7ee4589dcad52a8ca377e92fcbffb43c5686783fc",
+    "extracted_configuration_sha256": "73b7dd44046a8d1e5fab99fb25e426446e38273f963928ee707830d876b19998",
+    "formula": "Herwig-7.3.0/Utilities/AlphaS.h, two-loop alphaS",
+    "formula_source_sha256": "6fe64e0adb1626f525c7e40bd6ed43a042b20d67d185e4804d2e255401e71e01",
+    "matching_source_sha256": "b19697ffae837a6971313b01e4df95b75a2cac47589815e4b48ae7cae647a092"
+  },
+  "alpha_s_input": 0.1074,
+  "input_scale_GeV": 91.1876,
+  "loops": 2,
+  "thresholds_GeV": [1.6, 5.0, 172.69],
+  "lambdas_GeV_nf3_to_nf6": [
+    0.23068365283831022,
+    0.18321596413291172,
+    0.11747197977392006,
+    0.04431601843331295
+  ],
+  "freeze_scale_GeV": 0.935,
+  "alpha_s_at_freeze": 0.3539057603097492,
+  "scale_factor": 1.0,
+  "nonperturbative_behavior": "Const"
+}

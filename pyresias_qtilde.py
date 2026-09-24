@@ -56,9 +56,9 @@ outputfile = ''
 # how many events to shower
 Nshower = 1E99
 
-# the cutoff scale in GeV, 0.935 GeV matches Herwig 7 
+# coupling freeze scale in GeV (Herwig AlphaQCD:Qmin):
 Qc = 0.935
-# minimum pT in the shower, matches Herwig 7
+# independent minimum emission pT in GeV:
 pTmin = 0.900
 
 ##########################
@@ -76,8 +76,11 @@ parser.add_option("-p", "--printevents", dest="printevents", default=False, acti
 parser.add_option("-n", "--nshower", dest="nshower", default=Nshower,
                   help="Set the number of events to shower")
 
-parser.add_option("-c", dest="Qc", default=Qc,
-                  help="Set the cutoff scale for the evolution")
+parser.add_option("-c", "--coupling-freeze", dest="Qc", default=Qc, type="float",
+                  help="Freeze alpha_s below this scale in GeV [default: %default]")
+
+parser.add_option("--ptmin", dest="pTmin", default=pTmin, type="float",
+                  help="Minimum emission pT in GeV [default: %default]")
 
 parser.add_option("-o", dest="output", default=outputfile,
                   help="Set the output file name")
@@ -91,7 +94,11 @@ debug = options.debug
 printevents = options.printevents
 Nshower = int(options.nshower)
 Qc = float(options.Qc)
+pTmin = float(options.pTmin)
 outputfile = str(options.output)
+
+if not (np.isfinite(Qc) and Qc > 0 and np.isfinite(pTmin) and pTmin > 0):
+    parser.error("The coupling freeze scale and emission pT cutoff must be positive and finite")
 
 if len(sys.argv) < 2: parser.error("An input file is required!")
 
@@ -102,7 +109,7 @@ if outputfile == '': outputfile = inputfile.replace('.lhe','').replace('.gz','')
 #################################################
 
 # initialize alphaS class: pass the value of alphaS at mz, and mz
-aS = alphaS(0.1074, 91.1876) # alphaS(MZ) = 0.126 corresponds to 0.118 in MSbar scheme
+aS = alphaS(0.1074, 91.1876, mc=1.6, mb=5.0, mt=172.69, order=2)
 
 # CMW scheme:
 CMW = 'None' # 'Linear' or 'Factor' or 'None' 
@@ -115,9 +122,9 @@ def Kg():
     return 3.*(67./18.-1./6.*np.pi**2)-5./9.*Nf
 
 # the q -> q + g splitting function
-def Pqq(z, t, Qcut, aSover):
+def Pqq(z, t, Qfreeze, aSover):
     if CMW == 'Linear' or CMW == 'Factor':
-        aS = alphaS(t, z, Qcut, aSover)
+        aS = alphaS(t, z, Qfreeze, aSover)
         return CF * (1 + aS/2/np.pi * Kg() + z**2) / (1.-z)
     elif CMW == 'None':
         return CF * (1. + z**2)/(1.-z)
@@ -129,24 +136,23 @@ def Pqq_over(z): return 2.*CF/(1.-z)
 def scale_of_alphaS(t, z):
     return z * (1-z) * np.sqrt(t)
 
-# return the true alphaS using the PDF alphaS over 2 pi
-def alphaS(t, z, Qcut, aSover):
-    scale = scale_of_alphaS(t, z)
-    # if scale is < Qcut, reset scale to Qcut
-    if scale < Qcut and CMW == 'None' or CMW == 'Linear':
-        scale = Qcut
-    if CMW == 'Linear':
-        CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./np.pi
-        return aS.alphasQ(scale)/2./np.pi * CMWFactor
-    elif CMW == 'Factor':
+# Evaluate the frozen coupling / (2 pi), shared by the veto and its bound.
+def alphaS_at_scale(scale, Qfreeze):
+    if CMW == 'Factor':
         Nf = 5
         CMWFactor = np.exp(- (67 - 3 * np.pi**2 - 10/3 * Nf)/ (33 - 2*Nf) )
         scale *= CMWFactor
-        if scale < Qcut:
-            scale = Qcut
-        return aS.alphasQ(scale)/2./np.pi
-    elif CMW == 'None':
-        return aS.alphasQ(scale)/2./np.pi
+    elif CMW not in ('None', 'Linear'):
+        raise ValueError("Unknown CMW scheme: " + str(CMW))
+    scale = max(scale, Qfreeze)
+    value = aS.alphasQ(scale)/2./np.pi
+    if CMW == 'Linear':
+        value *= 1 + Kg() * value
+    return value
+
+# Qfreeze is independent of the physical emission cutoff used by the shower.
+def alphaS(t, z, Qfreeze, aSover):
+    return alphaS_at_scale(scale_of_alphaS(t, z), Qfreeze)
 
 # the analytical integral of t * Gamma over z 
 def tGamma(z, aSover):
@@ -161,23 +167,9 @@ def zp_over(t, cut): return 1.-np.sqrt(cut**2/t)
 def zm_over(t, cut): return np.sqrt(cut**2/t)
 
 # set the overestimate of alphaS once and for all
-def get_alphaS_over(Qcut):
-    minscale = Qcut # the minimum scale^2 available to the PDF
-    if minscale < Qcut:
-        scale = minscale
-    else:
-        scale = Qcut
-    if CMW == 'Linear':
-        CMWFactor = 1 + Kg() * aS.alphasQ(scale)/2./np.pi
-        alphaS_over = aS.alphasQ(scale)/2./np.pi * CMWFactor
-    elif CMW == 'Factor':
-        Nf = 5
-        CMWFactor = np.exp(- (67 - 3 * np.pi**2 - 10/3 * Nf)/ (33 - 2*Nf) )
-        scale *= CMWFactor
-        alphaS_over = aS.alphasQ(scale)/2./np.pi
-    elif CMW == 'None':
-        alphaS_over = aS.alphasQ(scale)/2./np.pi
-    if debug: print('alpha_S overestimate set to', alphaS_over, 'for scale=', scale, 'GeV')
+def get_alphaS_over(Qfreeze):
+    alphaS_over = alphaS_at_scale(0., Qfreeze)
+    if debug: print('alpha_S overestimate set to', alphaS_over, 'for freeze scale=', Qfreeze, 'GeV')
     return alphaS_over
 
 # get the momentum fraction candidate for the emission
@@ -245,8 +237,8 @@ def Generate_Emission(Q, Qcut, aSover):
     pTsqEm = Get_pTsq(tEm, zEm)
     if debug: print('\t\tcandidate transverse momentum =', np.sqrt(pTsqEm))
     # check if below cutoff
-    if pTsqEm < pTmin**2:
-        if debug: print('\t\temission REJECTED due to pT <  pTmin:', np.sqrt(pTsqEm), '<', pTmin)
+    if pTsqEm < Qcut**2:
+        if debug: print('\t\temission REJECTED due to pT < emission cutoff:', np.sqrt(pTsqEm), '<', Qcut)
         generated = False
     # now check the conditions to accept or reject the emission:
     # check if the transverse momentum is physical:
@@ -254,17 +246,21 @@ def Generate_Emission(Q, Qcut, aSover):
         if debug: print('\t\temission REJECTED due to negative pT**2=', pTsqEm)
         generated = False
     # compare the splitting function overestimate prob to a random number
-    if Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm) < R3:
-        if debug: print('\t\temission REJECTED due to splitting function overestimate, p=', Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm), 'R=', R3)
+    if Pqq(zEm, tEm, Qc, aSover)/Pqq_over(zEm) < R3:
+        if debug: print('\t\temission REJECTED due to splitting function overestimate, p=', Pqq(zEm, tEm, Qc, aSover)/Pqq_over(zEm), 'R=', R3)
         generated = False
     else:
-        if debug: print('\t\temission NOT rejected due to splitting function overestimate, p=', Pqq(zEm, tEm, Qcut, aSover)/Pqq_over(zEm), 'R=', R3)
+        if debug: print('\t\temission NOT rejected due to splitting function overestimate, p=', Pqq(zEm, tEm, Qc, aSover)/Pqq_over(zEm), 'R=', R3)
     # compare the alphaS overestimate prob to a random number
-    if alphaS(tEm, zEm, Qcut, aSover)/aSover < R4:
-        if debug: print('\t\temission REJECTED due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+    coupling_probability = alphaS(tEm, zEm, Qc, aSover)/aSover
+    if not 0. <= coupling_probability <= 1.:
+        raise RuntimeError("Invalid alpha_s veto probability: " + str(coupling_probability)
+                           + "; check the coupling freeze scale and overestimate")
+    if coupling_probability < R4:
+        if debug: print('\t\temission REJECTED due to alphaS overestimate, p=', coupling_probability, 'R=', R4)
         generated = False
     else:
-        if debug: print('\t\temission NOT rejected due to alphaS overestimate: alphaS, aSover, p=', 2*np.pi*alphaS(tEm, zEm, Qcut, aSover), 2*np.pi*aSover, alphaS(tEm, zEm, Qcut, aSover)/aSover, 'R=', R4)
+        if debug: print('\t\temission NOT rejected due to alphaS overestimate, p=', coupling_probability, 'R=', R4)
     # get the virtual mass squared:
     MsqEm = Get_mvirtsq(tEm, zEm)
     if debug and generated == True:
@@ -706,4 +702,3 @@ outlhe = outputfile.replace('.hepmc','_pyr.lhe')
 fout = init_lhe(outlhe, sigma, error, ECM)
 write_lhe(fout, showeredEvents, ECM**2, debug)
 finalize_lhe(fout)
-
