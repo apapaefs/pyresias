@@ -1,5 +1,4 @@
 import numpy as np
-import math
 
 
 # QCD Constants:
@@ -13,6 +12,10 @@ CF = (NC * NC - 1.) / (2. * NC)
 class alphaS:
     """An alphaS class"""
     def __init__(self, asmz, mz, mb=4.2, mc=1.25, order=2):
+        if order not in (1, 2):
+            raise ValueError("order must be 1 or 2")
+        if not all(np.isfinite(x) and x > 0 for x in (asmz, mz, mb, mc)) or not mc < mb < mz:
+            raise ValueError("Expected positive finite inputs with mc < mb < mz")
         self.order = order
         self.asmz = asmz
         self.mz = mz
@@ -48,7 +51,7 @@ class alphaS:
             tref = self.mz2
             asref = self.asmz
             b0 = self.Beta0(5) / (2. * np.pi)
-        elif t >= mc2:
+        elif t >= self.mc2:
             tref = self.mb2
             asref = self.asmb
             b0 = self.Beta0(4) / (2. * np.pi)
@@ -56,7 +59,7 @@ class alphaS:
             tref = self.mc2
             asref = self.asmc
             b0 = self.Beta0(3) / (2. * np.pi)
-        return 1. / (1. / asref + b0 * log(t / tref))
+        return 1. / (1. / asref + b0 * np.log(t / tref))
 
     # beta functions:
     def Beta0(self,nf):
@@ -67,11 +70,13 @@ class alphaS:
 
     # function to access alphaS at scale Q (not squared!)
     def alphasQ(self, Q):
-        if self.order == 1:
-            return self.As0(Q**2)
-        else:
-            return self.As1(Q**2)
-
+        if not np.isfinite(Q) or Q <= 0.:
+            raise ValueError("The coupling scale must be positive and finite")
+        with np.errstate(invalid="ignore", divide="ignore"):
+            value = self.As0(Q**2) if self.order == 1 else self.As1(Q**2)
+        if not np.isfinite(value) or value <= 0.:
+            raise ValueError("The coupling scale is below the perturbative domain")
+        return value
 
 
 

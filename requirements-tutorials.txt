@@ -1,0 +1,6 @@
+-r requirements.txt
+jupyterlab>=4
+nbclient>=0.10
+ipykernel>=6
+fastjet>=3.4
+pyhepmc>=2.13

@@ -2,11 +2,10 @@
 
 Run from the repository root: python -m unittest discover -s tests -v
 """
-import ast
+import importlib
 import json
 import math
 from pathlib import Path
-import random
 import sys
 import unittest
 
@@ -14,7 +13,8 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
-from alphaS_HW import alphaS, CF
+from alphaS_HW import alphaS
+import pyresias_qtilde
 
 REFERENCE = json.loads(
     (Path(__file__).parent / "fixtures/herwig-7.3.0-coupling.json").read_text()
@@ -29,22 +29,6 @@ def herwig_alpha(scale):
     log_scale = math.log((scale / lam)**2)
     b0, b1 = 11. - 2.*nf/3., 51. - 19.*nf/3.
     return 4.*math.pi/(b0*log_scale) * (1. - 2.*b1/b0**2 * math.log(log_scale)/log_scale)
-
-
-def shower_functions():
-    # This legacy script runs its CLI at import time. Load its actual function
-    # definitions without reading an LHE file or running the production loop.
-    source = REPO / "pyresias_qtilde.py"
-    tree = ast.parse(source.read_text())
-    functions = ast.Module(
-        body=[node for node in tree.body if isinstance(node, ast.FunctionDef)],
-        type_ignores=[],
-    )
-    namespace = dict(np=np, math=math, CF=CF, debug=False, CMW="None",
-                     aS=alphaS(.1074, 91.1876), Qc=.935, pTmin=.9,
-                     random=random.Random(12345).random)
-    exec(compile(functions, str(source), "exec"), namespace)
-    return namespace
 
 
 class RunningCouplingTests(unittest.TestCase):
@@ -93,7 +77,8 @@ class RunningCouplingTests(unittest.TestCase):
 
 class ShowerCouplingTests(unittest.TestCase):
     def setUp(self):
-        self.shower = shower_functions()
+        self.shower = vars(importlib.reload(pyresias_qtilde))
+        self.addCleanup(importlib.reload, pyresias_qtilde)
 
     def test_frozen_curve_matches_herwig_and_respects_veto_bound(self):
         shower = self.shower
@@ -132,8 +117,8 @@ class ShowerCouplingTests(unittest.TestCase):
             self.candidate_at_pt(.91, .9, over)
 
     def test_coupling_bound_for_alternative_freeze_scales_and_cmw_options(self):
-        # This checks the coupling only; the experimental CMW kernels are not
-        # validated against Herwig by this comparison.
+        # The alternative CMW conventions are checked for a valid coupling
+        # bound here; the saved Herwig reference uses no CMW conversion.
         for scheme in ("None", "Linear", "Factor"):
             self.shower["CMW"] = scheme
             for freeze in (.8, .935, 2.):

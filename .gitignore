@@ -1,3 +1,10 @@
 __pycache__/
 *.pyc
 data/*_ttn_report.json
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+plots/
+output/
+data/*_pyr*.lhe
+data/*_ttn*.lhe

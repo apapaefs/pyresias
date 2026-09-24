@@ -1,30 +1,22 @@
-from random import * # random numbers
-import os, subprocess # to check and create directories 
-import math # python math
-import numpy as np # numerical python
-import scipy # scientific python
-from scipy import optimize # for numerical solution of equations
-from matplotlib import pyplot as plt # plotting
-import matplotlib.gridspec as gridspec # more plotting 
-from prettytable import PrettyTable # pretty printing of tables
-from tqdm import tqdm # display progress
-from optparse import OptionParser # command line parameters
-from scipy.integrate import quad # for numerical integrals
-from LHEReader import * # read LHE files
-from HEPMCWriter import * # write HepMC files using pyhepmc
-from LHEWriter import * # write LHE file
-from alphaS_HW import * # alphaS at LO and NLO
+"""Massless angular-ordered shower in the Sudakov basis."""
+from random import random
+import math
+import sys
+import numpy as np
+from prettytable import PrettyTable
+from alphaS_HW import alphaS, CF
+from shower_cli import run_shower
+from kinematics import RotateMomentaLab, dot4vec
 
-################################################
-print('\nPyresias-qTilde: a toy parton shower\n')
-# a simple toy q -> q+g parton shower
-#################################################
+debug = False
+Qc = .935
+pTmin = .900
 
 # function to print the emission information once they have been genrated:
 def PrintEmissions(EmissionsArray):
     tbl = PrettyTable(["#", "Evo scale [GeV]", '1-z', 'pT [GeV]', 'virt. mass in a->bc [GeV]'])
     for i in range(len(EmissionsArray)):
-        tbl.add_row([i, EmissionsArray[i][0], 1-EmissionsArray[i][1], EmissionsArray[i][2], EmissionsArray[i][3]])
+        tbl.add_row([i, np.sqrt(EmissionsArray[i][0]), 1-EmissionsArray[i][1], EmissionsArray[i][2], np.sqrt(EmissionsArray[i][3])])
     print(tbl)
 
 # function to print the momenta information once they have been genrated:
@@ -34,79 +26,6 @@ def PrintMomenta(MomentaArray):
         tbl.add_row([i, MomentaArray[i][0], MomentaArray[i][1], MomentaArray[i][2], MomentaArray[i][3], MomentaArray[i][4], MomentaArray[i][5], MomentaArray[i][6]])
     print(tbl)
 
-
-#############
-# SWITCHES: #
-#############
-
-# switch to print information or not:
-debug = False
-
-# print the showered events:
-printevents = False
-
-# the input file name:
-inputfile = ''
-
-# output file name for the hepmc file
-outputfile = ''
-
-# RUN OPTIONS (defaults):
-
-# how many events to shower
-Nshower = 1E99
-
-# coupling freeze scale in GeV (Herwig AlphaQCD:Qmin):
-Qc = 0.935
-# independent minimum emission pT in GeV:
-pTmin = 0.900
-
-##########################
-# COMMAND LINE ARGUMENTS #
-##########################
-
-parser = OptionParser(usage="%prog [options] [inputfile]", version='Pyresias 0.2')
-
-parser.add_option("-d", "--debug", dest="debug", default=False, action="store_true",
-                  help="Print debugging to screen")
-
-parser.add_option("-p", "--printevents", dest="printevents", default=False, action="store_true",
-                  help="Print showered events to screen")
-
-parser.add_option("-n", "--nshower", dest="nshower", default=Nshower,
-                  help="Set the number of events to shower")
-
-parser.add_option("-c", "--coupling-freeze", dest="Qc", default=Qc, type="float",
-                  help="Freeze alpha_s below this scale in GeV [default: %default]")
-
-parser.add_option("--ptmin", dest="pTmin", default=pTmin, type="float",
-                  help="Minimum emission pT in GeV [default: %default]")
-
-parser.add_option("-o", dest="output", default=outputfile,
-                  help="Set the output file name")
-
-
-# parse the command line arguments
-(options, args) = parser.parse_args()
-
-# set command line arguments 
-debug = options.debug
-printevents = options.printevents
-Nshower = int(options.nshower)
-Qc = float(options.Qc)
-pTmin = float(options.pTmin)
-outputfile = str(options.output)
-
-if not (np.isfinite(Qc) and Qc > 0 and np.isfinite(pTmin) and pTmin > 0):
-    parser.error("The coupling freeze scale and emission pT cutoff must be positive and finite")
-
-if len(sys.argv) < 2: parser.error("An input file is required!")
-
-inputfile = sys.argv[1]
-
-if outputfile == '': outputfile = inputfile.replace('.lhe','').replace('.gz','') + '.hepmc'
-
-#################################################
 
 # initialize alphaS class: pass the value of alphaS at mz, and mz
 aS = alphaS(0.1074, 91.1876, mc=1.6, mb=5.0, mt=172.69, order=2)
@@ -123,11 +42,7 @@ def Kg():
 
 # the q -> q + g splitting function
 def Pqq(z, t, Qfreeze, aSover):
-    if CMW == 'Linear' or CMW == 'Factor':
-        aS = alphaS(t, z, Qfreeze, aSover)
-        return CF * (1 + aS/2/np.pi * Kg() + z**2) / (1.-z)
-    elif CMW == 'None':
-        return CF * (1. + z**2)/(1.-z)
+    return CF * (1. + z*z) / (1. - z)
     
 # the q -> q + g splitting function *overestimate* 
 def Pqq_over(z): return 2.*CF/(1.-z)
@@ -183,9 +98,11 @@ def Get_mvirtsq(t,z): return z*(1-z) * t
 
 # a function that calculates the emission scale given the initial scale Q, cutoff Qc and random number R
 def Get_tEmission_direct(Q, Qcut, R, aSover):
+    if Q <= 2. * Qcut or R <= 0.:
+        return Q**2, [], False
     upper = tGamma(zp_over(Q**2, Qcut), aSover)
     lower = tGamma(zm_over(Q**2, Qcut), aSover)
-    if lower > upper:
+    if lower >= upper:
         if debug: print('\tEmission fails due upper < lower')
         return Q**2, [], False
     c = 1/(upper - lower)
@@ -282,8 +199,6 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
     Nem = 0
     # array to store emission info:
     Emissions = []
-    # array to store momenta of outgoing particles:
-    Momenta = []
     fac_cutoff = 4. # actual cutoff = fac_cutoff * Qc**2
     # star the evolution
     tEm = Q2start # initial value of the evolution variable = COM energy in this case
@@ -302,7 +217,6 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
                 print('-----')
                 print('Emissions table:')
                 PrintEmissions(Emissions)
-            #Momenta.append([p[0], 1, 0, 0, pmag, pmag, 0])
             return Emissions
         # if we have already passed the cutoff this emission does not count
         # this will also terminate the evolution
@@ -310,7 +224,6 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
             if debug: print('\t\tXX->emission rejected at sqrt(t)=', np.sqrt(tEm), 'since it is below cutoff')
             zEm = 1.
             pTsqEm = 0.
-            QsqEm = 0.
             if debug: print('total number of emissions=', Nem)
             return Emissions
         # if the emission was successful, append to the Emissions and Momenta lists and continue
@@ -326,15 +239,12 @@ def EvolveParticle(p, Qmin, Q2start, aSover):
         print('-----')
         print('Emissions table:')
         PrintEmissions(Emissions)
-    # add the magnitude of the quark with respect to its original direction:
-    #Momenta.append([p[0], 1, 0, 0, pmag, pmag, 0])
-    return Emissions#, Momenta
+    return Emissions
 
 
 # Shower an event (which consists of the "particles" array):
 def Shower(particles, Qmin, aSover):
     # lists to store all emission and momenta information:
-    AllEmissions = []
     AllMomenta = []
     JetMomenta = [] # to be used for global momentum conservation
     # Find the colored particles and shower them down to Qmin
@@ -388,11 +298,9 @@ def reconstructSudakov(pin, nin, EmissionVariables):
     alphas_prime = [] # the alphas of the evolving quark
     qTs_prime = [] # the transverse momentum 4-vector of the quark
     qTs = [] # the transverse momentum 4-vector of the gluons
-    qsqs = [] # the virtualities 
     # initial values:
     alpha_prime = 1 # the alpha of the evolving quark
     qT_prime = [0,0,0,0,0,0] # initial qT of quark is zero
-    qT = [0,0,0,0,0,0] # initial qT is zero
     # go to a frame where the progenitor is moving in the z direction:
     pmag = np.sqrt(pin[2]**2 + pin[3]**2 + pin[4]**2)
     p = [pin[0], pin[1], 0, 0, pmag, pmag, 0]
@@ -401,17 +309,11 @@ def reconstructSudakov(pin, nin, EmissionVariables):
     pdotn = dot4vec(p,n) # get p.n
     if len(EmissionVariables) == 0:
         return [p]
-    qtildes_sq = [] # the evolution variables squared
-    phis = [] # the generated phi angles
-    pTs = [] # the pTs of the splittings
-    msqs = [] # the virtualities squared
     
     # get the information generated in each emission
     for Emission in EmissionVariables:
-        qtildesq = Emission[0] # the evolution variable t = qtilde^2
         z = Emission[1] # get the momentum fraction of the emission
         pT = Emission[2] # get the pT of the emission
-        msq = Emission[3] # the virtuality of the emission
         phi = Emission[4] # get the phi of the emission
         
         # get the alphas for the quark and emitted gluon: 
@@ -421,10 +323,6 @@ def reconstructSudakov(pin, nin, EmissionVariables):
         # append to lists:
         alphas.append(alpha) 
         alphas_prime.append(alpha_prime)
-        qtildes_sq.append(qtildesq)
-        phis.append(phi)
-        pTs.append(pT)
-        msqs.append(msq)
  
         # calculate the qT 4-vectors
         kT = [pT*np.cos(phi), pT*np.sin(phi), 0, 0] # (px, py, pz, E)
@@ -432,7 +330,6 @@ def reconstructSudakov(pin, nin, EmissionVariables):
         qT_prime =  [0, 0, qT_prime[2]*z + kT[0], qT_prime[3]*z + kT[1], 0, 0] # (0, 0, px, py, pz, E)
         qTs.append(qT)
         qTs_prime.append(qT_prime)
-    msqs.append(0)
         
     # at this point, alphas and qTs have been calculated for each particle 
     # find the betas:
@@ -464,241 +361,11 @@ def reconstructSudakov(pin, nin, EmissionVariables):
     
          
 
-# define a unit vector given a vector
-def unit_vector(vector):
-    """ Returns the unit vector of the vector.  """
-    return vector / np.linalg.norm(vector)
-
-# get the angle between two 3-vectors
-def angle_between(v1, v2):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'"""
-    v1_u = unit_vector(v1)
-    v2_u = unit_vector(v2)
-    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-
-# Given two 3d-vectors a, b find rotation of a so that its orientation matches b.
-# Known as the Rodrigue's Rotation formula
-# https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
-def GetRotationMatrixAB(a,b):
-    acrossb = np.cross(a, b)
-    #print(np.linalg.norm(acrossb))
-    if np.linalg.norm(acrossb) > 1E-12:
-        x = unit_vector(acrossb)
-        theta = angle_between(a,b)
-        I = np.identity(3)
-        A = np.array([[0, -x[2], x[1]], [x[2], 0, -x[0]], [-x[1], x[0], 0]])
-        R = I + A * np.sin(theta) + np.dot(A,A) * (1-np.cos(theta))
-    else:
-        return np.identity(3)
-    return R
-
-# Use the rotation to rotate the momenta to align with the mother particle's momentum in the lab frame
-def RotateMomentaLab(p, Momenta):
-    # array to return rotated momenta:
-    RotatedMomenta = []
-    # get the direction of the mother particle in a frame where it is aligned with the z-axis:
-    pmag = np.sqrt(p[2]**2 + p[3]**2 + p[4]**2)
-    pzonly = np.array([0,0,pmag])
-    # get the rotation matrix
-    Rmatrix = GetRotationMatrixAB(pzonly, np.array([p[2],p[3],p[4]]))
-    # loop over the momenta and rotate them to the lab frame:
-    for pm in Momenta:
-        a = np.array([pm[2], pm[3], pm[4]])
-        c = np.dot(Rmatrix,a)
-        RotatedMomenta.append([pm[0], 1, c[0], c[1], c[2], pm[5], pm[6]]) 
-    return RotatedMomenta
-
-# sum up all the momenta and print out the resulting three-vector of total momentum
-def CheckMomentumConservation(Momenta):
-    totalmom = np.array([0,0,0])
-    for pm in Momenta:
-        if pm[1] == 1: # final-state only
-            totalmom = totalmom + np.array([pm[2], pm[3], pm[4]])
-    return totalmom
-
-# implement global momentum conservation [see https://arxiv.org/pdf/0803.0883 section 6.4.2]
-def GlobalMomCons(showeredParticles, showeredJets):
-    # total energy:
-    sqrthatS = 0
-    # pj2 and qj2 arrays:
-    pj2array = []
-    qj2array = []
-    # oldp and newq arrays:
-    newqarray = []
-    oldparray = []
-    Rqparray = [] # the rotation angle array
-    # loop over jets:
-    for jet in showeredJets:
-        #  get the 4-momentum of the progenitor jet
-        oldp = np.array([jet[0][2], jet[0][3], jet[0][4], jet[0][5]])
-        # Get the 3-momentum length of the "progenitor" of the jet (first entry in jet):
-        pj2 = jet[0][2]**2 + jet[0][3]**2 +jet[0][4]**2
-        sqrthatS += jet[0][5]
-        # get the total momentum of the jet after showering
-        qj = np.array([0,0,0,0])
-        for p in jet[1]:
-            qj = qj + np.array([p[2], p[3], p[4], p[5]])
-            qj2 = qj[3]**2 - qj[0]**2 - qj[1]**2 - qj[2]**2
-        if math.isnan(qj2):
-            qj2 = 0
-        Rqp = GetRotationMatrixAB(np.array([qj[0], qj[1], qj[2]]),np.array([oldp[0], oldp[1], oldp[2]]))
-        pj2array.append(pj2)
-        qj2array.append(qj2)
-        newqarray.append(qj)
-        oldparray.append(oldp)
-        Rqparray.append(Rqp)
-    # define the equation to get k
-    def keqn(x):
-        kres = 0
-        for i in range(len(pj2array)):
-            kres += np.sqrt(x * pj2array[i] + qj2array[i])
-        kres = kres - sqrthatS
-        return kres
-    kres = np.sqrt(optimize.root(keqn, 0.99).x[0])
-    if debug: print('kres=', kres)
-    # now boost the momenta of the particles inside the jets according to the calculated kres:
-    showeredParticlesBoosted = []
-    # add back the initial state:
-    for p in showeredParticles:
-        if abs(p[0]) == 11:
-            showeredParticlesBoosted.append(p)
-    showeredJetsBoosted = []
-    # check: if both parent particles have not radiated, put them in the record as they were:
-    # if true, then at least one has radiated: 
-    either_radiated = any(len(jet[1]) > 1 for jet in showeredJets)
-    if either_radiated is False:
-        for jj, jet in enumerate(showeredJets):
-            showeredJetsBoosted.append(jet[1][0])
-            showeredParticlesBoosted.append(jet[1][0])
-    else:     
-        for jj, jet in enumerate(showeredJets):
-            showeredJetBoosted = []
-            # get the boost:
-            boostvec = getBoostBeta(kres, newqarray[jj], oldparray[jj])
-            #if len(jet[1]) == 1: # don't do anything if the particle has not showered
-            #    showeredJetsBoosted.append(jet[1][0])
-            #    showeredParticlesBoosted.append(jet[1][0])
-            # if the parents have radiated, rotate boost each particle in the jet for momentum conservation
-            for p in jet[1]:
-                # rotate all particles such that the new jet axis aligns with the parent jet axis
-                protated = rotate(p, Rqparray[jj])
-                #print('protated=', protated)
-                # boost all particles as well:
-                pboosted = boost(np.array([protated[2], protated[3], protated[4], protated[5]]), boostvec)
-                #print('boostvec=', boostvec)
-                #print('pboosted=', pboosted)
-                # "id", "status", 'px [GeV]', 'py [GeV]', 'pz [GeV]', 'E [GeV]', 'm [GeV]']
-                showeredParticlesBoosted.append([p[0], p[1], pboosted[0], pboosted[1], pboosted[2], pboosted[3], p[6]])
-                showeredJetBoosted.append([p[0], p[1], pboosted[0], pboosted[1], pboosted[2], pboosted[3], p[6]])
-            showeredJetsBoosted.append(showeredJetBoosted)
-    # check:
-    #testsum = 0
-    #for jj, jet in enumerate(showeredJetsBoosted):
-    #    sjet = np.array([0.,0.,0.,0.])
-    #    for particle in jet:
-    #        sjet += np.array([particle[2], particle[3], particle[4], particle[5]])
-    #    testsum += sjet[3]
-    #print('testsum=', testsum)
-    return showeredParticlesBoosted
 
 
-# gets the boost factor for global momentum conservation
-# adapted from Herwig 7 Q-tilde shower
-# newq is the 4-momentum of the outgoing jet (px, py, pz, E)
-# oldp is the 4-momentum of the parent jet
-def getBoostBeta(k, newq, oldp):
-    qs = newq[0]**2 + newq[1]**2 + newq[2]**2
-    q = np.sqrt(qs)
-    Q2 = newq[3]**2 - newq[0]**2 - newq[1]**2 - newq[2]**2
-    kp = k*np.sqrt(oldp[0]**2 + oldp[1]**2 + oldp[2]**2)
-    kps = kp**2
-    betam = (q*newq[3] - kp*np.sqrt(kps + Q2))/(kps + qs + Q2)
-#  // usually we take the minus sign, since this boost will be smaller.
-#  // we only require |k \vec p| = |\vec q'| which leaves the sign of
-#  // the boost open but the 'minus' solution gives a smaller boost
-#  // parameter, i.e. the result should be closest to the previous
-#  // result. this is to be changed if we would get many momentum
-#  // conservation violations at the end of the shower from a hard
-#  // process.
-#    betam = (q*np.sqrt(qs + Q2) - kp*np.sqrt(kps + Q2))/(kps + qs + Q2)
-#  // move directly to 'return'
-# NOTE: difference of a minus sign due to ThePEG's definition of the boost 
-    beta = betam*(k/kp)*np.array([oldp[0], oldp[1], oldp[2]])
-    #print('betam=', betam)
-#  // note that (k/kp)*oldp.vect() = oldp.vect()/oldp.vect().mag() but cheaper. 
-    if betam >= 0:
-        return beta
-    else:
-        return np.array([0,0,0])
-
-# boost in the direction of betavec
-def boost(fourvector, betavec):
-    if betavec.all() == 0:
-        return fourvector
-    # get the components of the boost vector
-    betax = betavec[0]
-    betay = betavec[1]
-    betaz = betavec[2]
-    beta = np.sqrt(betavec[0]**2 + betavec[1]**2 + betavec[2]**2)
-    boosted = [0,0,0,0]
-    gamma = 1./np.sqrt(1. - beta**2)
-    boosted[3] = gamma * (fourvector[3] - betax * fourvector[0] - betay * fourvector[1] - betaz * fourvector[2])
-    boosted[0] = - gamma * betax * fourvector[3] + (1 + (gamma-1)* betax**2 / beta**2) * fourvector[0] + (gamma-1) * betax * betay  * fourvector[1] / beta**2 + (gamma-1) * betax * betaz / beta**2 * fourvector[2]
-    boosted[1] = - gamma * betay * fourvector[3] + (gamma - 1) * betay * betax  * fourvector[0]  / beta**2 + (1 + (gamma-1) * betay**2 / beta**2 ) * fourvector[1] + (gamma - 1) * betay * betaz * fourvector[2] / beta**2
-    boosted[2] = - gamma * betaz * fourvector[3] + (gamma-1) * betaz * betax  * fourvector[0] / beta**2 + (gamma-1) * betaz * betay  * fourvector[1]/ beta**2 + (1 + (gamma-1) * betaz**2 / beta**2) * fourvector[2]
-    return boosted
+def main(argv=None):
+    return run_shower(sys.modules[__name__], argv, qtilde=True)
 
 
-# rotate according to rotation matrix
-def rotate(p, Rmatrix):
-    # rotate
-    a = np.array([p[2], p[3], p[4]])
-    c = np.dot(Rmatrix,a)
-    RotatedMomentum = np.array([p[0], 1, c[0], c[1], c[2], p[5], p[6]]) 
-    return RotatedMomentum
-
-# get the four-vector product for two vectors p and n
-def dot4vec(p,n):
-    return p[5] * n[5] - p[2] * n[2] - p[3] * n[3] - p[4] * n[4]
-
-
-##########################
-# Evolution begins here! #
-##########################
-
-# set the overestimate of alphaS once and for all:
-alphaS_over = get_alphaS_over(Qc)
-if debug: print('alphaS overestimate=', alphaS_over)
-
-# read the LHE File
-print('Showering', inputfile)
-events, weights, multiweights = readlhefile(inputfile)
-
-# Store the showered events:
-showeredEvents = []
-
-for i, particles in enumerate(tqdm(events)):
-    # get the particles after parton shower and the showered jets: 
-    showeredParticles, showeredJets = Shower(particles, pTmin, alphaS_over)
-    # apply momentum conservation 
-    showeredParticles = GlobalMomCons(showeredParticles, showeredJets)
-    if debug is True or printevents is True:
-        PrintMomenta(showeredParticles)
-        print('Momentum conservation check AFTER=',CheckMomentumConservation(showeredParticles),'\n')
-    showeredEvents.append(showeredParticles)
-    if i > Nshower: break
-
-# construct the HEPMC writer (Ascii)
-#print('Writing output to HepMC file:', outputfile)
-#hepmcwriter = pyhepmc.io.WriterAscii(outputfile)
-# write hepmc file
-#WriteHepMC(hepmcwriter, showeredEvents)
-
-# construct the LHE writer:
-sigma = 1.2
-error = 0.2
-ECM = 206
-outlhe = outputfile.replace('.hepmc','_pyr.lhe')
-fout = init_lhe(outlhe, sigma, error, ECM)
-write_lhe(fout, showeredEvents, ECM**2, debug)
-finalize_lhe(fout)
+if __name__ == "__main__":
+    raise SystemExit(main())

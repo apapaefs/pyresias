@@ -1,9 +1,8 @@
 name: pyresias
+channels:
+  - conda-forge
 dependencies:
   - python=3.11
-  - numpy
-  - scipy
-  - matplotlib
-  - tqdm
-  - PrettyTable
-  - sympy
+  - pip
+  - pip:
+      - -r requirements-tutorials.txt
