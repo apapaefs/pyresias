@@ -22,7 +22,7 @@ gluon_splittings = True
 
 # function to print the emission information once they have been genrated:
 def PrintEmissions(EmissionsArray):
-    tbl = PrettyTable(["#", "Evo scale [GeV]", '1-z', 'pT [GeV]', 'virt. mass in a->bc [GeV]'])
+    tbl = PrettyTable(["#", "Evo scale [GeV]", '1-z', 'pT [GeV]', 'mass for on-shell daughters [GeV]'])
     for i in range(len(EmissionsArray)):
         tbl.add_row([i, np.sqrt(EmissionsArray[i][0]), 1-EmissionsArray[i][1], EmissionsArray[i][2], np.sqrt(EmissionsArray[i][3])])
     print(tbl)
