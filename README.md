@@ -1,4 +1,4 @@
-# Pyresias: How to write a toy parton shower
+# Pyresias: How to write a parton shower
 
 Pyresias is a tutorial on building a simple parton shower in Python. The aim
 is to connect the theoretical description of QCD radiation to code that can
