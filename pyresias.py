@@ -214,7 +214,14 @@ def EvolveParticle(p, Qmin, aSover):
         if zEm != 1.0:
             pT = np.sqrt(pTsqEm)
             Emissions.append([np.sqrt(tEm), zEm, pT, np.sqrt(MsqEm)])
-            # generate the momenta of the outgoing gluons with respect to the quark direction
+            # Introductory momentum-assignment approximation: the emitted gluon
+            # receives transverse momentum, while the continuing quark stays
+            # on the original axis and only its longitudinal momentum is reduced.
+            # Thus pT and MsqEm are sampling quantities; they need not equal the
+            # reconstructed relative transverse momentum and parent invariant mass.
+            # Global recoil conserves the event four-momentum but leaves jet masses
+            # unchanged. See pyresias_qtilde.py for the Sudakov-basis reconstruction
+            # that preserves the branching transverse momenta.
             # random phi angle
             phi = (2*random() - 1)*np.pi
             Ei = np.sqrt( (1-zEm)**2 * pmag**2 + pT**2 )

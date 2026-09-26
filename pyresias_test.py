@@ -123,6 +123,9 @@ def Generate_Emission(Q, Qcut, aSover):
 
 
 def Evolve(Q, Qmin, aSover):
+    # Single-quark-line approximation: follow q -> qg and leave emitted gluons
+    # unevolved. The recorded pT and mass use collinear, massless on-shell-daughter
+    # relations; this sampler generates branching variables without event momenta.
     emissions = []
     t, z = Q*Q, 1.
     while math.sqrt(t) * z > 2. * Qmin:
