@@ -150,6 +150,8 @@ correlations and matrix-element corrections are outside the tutorial.
 
 Each script provides `--help` for its command-line options. Numerical checks
 and the scope of the validation are described in [VALIDATION.md](VALIDATION.md).
+The scripts and histogram data that reproduce the validation figures of the
+paper are in [validation/](validation/README.md).
 To run the tests, including the notebook:
 
 ```bash
@@ -164,3 +166,5 @@ with `env -u DYLD_LIBRARY_PATH -u PYTHONPATH`.
 Pyresias is written by Andreas Papaefstathiou. See the
 [tutorial paper](https://arxiv.org/abs/2406.03528) and its
 [manuscript repository](https://github.com/apapaefs/PyresiasDoc).
+It is distributed under the GNU General Public License, version 3 or (at your
+option) any later version; see [LICENSE](LICENSE).

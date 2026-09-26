@@ -186,3 +186,11 @@ correlations. The numerical mass-squared plot retains the roundoff-related
 difference described above. Three Herwig and two Pyresias events overflow
 the jet-count range. Representative multiplicity, parton and jet PDFs were
 rendered and inspected. Static checks and `git diff --check` pass.
+
+## Paper validation figures — 26 September 2026
+
+The paper's Sudakov closure test and its comparison with Herwig 7.3.0 can be
+reproduced with the scripts and histogram data in [validation/](validation/README.md).
+Both scripts were run from their new location in this repository: the four
+Herwig comparison panels are identical to those in the paper, and the closure
+test reproduces the recorded counts and test statistic for seed 12345.

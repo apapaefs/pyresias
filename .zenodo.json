@@ -1,0 +1,28 @@
+{
+  "title": "Pyresias: How to write a parton shower",
+  "upload_type": "software",
+  "description": "<p>Pyresias is a tutorial parton shower in Python for final-state QCD radiation in electron-positron annihilation. It builds the Sudakov veto algorithm, angular ordering, momentum reconstruction and competition between quark and gluon branching channels in stages, from a single quark line to complete events. The repository includes a JupyterLab notebook, automated tests, the Herwig input cards used for the comparison, and the scripts and histogram data that reproduce the validation figures of the accompanying tutorial article (arXiv:2406.03528).</p>",
+  "creators": [
+    {
+      "name": "Papaefstathiou, Andreas",
+      "affiliation": "Kennesaw State University"
+    }
+  ],
+  "license": "gpl-3.0-or-later",
+  "keywords": [
+    "parton shower",
+    "QCD",
+    "Monte Carlo event generator",
+    "Sudakov veto algorithm",
+    "angular ordering",
+    "tutorial",
+    "Python"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "arXiv:2406.03528",
+      "relation": "isSupplementTo",
+      "resource_type": "publication-preprint"
+    }
+  ]
+}
